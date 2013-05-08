@@ -252,7 +252,15 @@ class ClassTable {
 	adjacencyList.put("Object", new ArrayList<String>() );
 	for (Enumeration e = classes.getElements(); e.hasMoreElements(); ) {
 	    class_c currentClass = ((class_c)e.nextElement());
-	    nameToClass.put(currentClass.getName().toString(), currentClass);
+
+	    // If the same class name is already present, that's a redefinition error
+	    String className = currentClass.getName().toString();
+	    if (!nameToClass.containsKey(className)) {
+	    	nameToClass.put(currentClass.getName().toString(), currentClass);
+	    } else {
+	    	semantError(currentClass).println("Class " + className + " was previously defined");
+	    	continue;
+	    }
 	    // if parent already present in HashMap, append child to list of children
 	    String parent = currentClass.getParent().toString();
 	    if ( !adjacencyList.containsKey(parent) ) {
@@ -282,11 +290,9 @@ class ClassTable {
     }
 
     // It is illegal to inherit from Bool, Int or String
-    
+
 	// Do the depth first search of this adjacency list starting from Object
 	HashMap<String, Boolean> visited = new HashMap<String, Boolean>();
-	// Put the key for "Object" in the visited list
-	visited.put("Object", false);
 	for (String key : adjacencyList.keySet() ) {
 		visited.put(key, false);
 		for ( String value : adjacencyList.get(key) ) {
@@ -295,6 +301,11 @@ class ClassTable {
 	}
 	depthFirstSearch(visited, "Object");
 	// Check for unreachable components - unreachable classes are cycles
+	// Except the Bool, IO, Int and String. Hack - set them to true
+	visited.put(TreeConstants.IO.getString(), true);
+	visited.put(TreeConstants.Bool.getString(), true);
+	visited.put(TreeConstants.Str.getString(), true);
+	visited.put(TreeConstants.Int.getString(), true);
 	for (String key : visited.keySet()) {
 		if (!visited.get(key)) {
 			semantError(nameToClass.get(key)).println("Class " + key + " or an ancestor is involved in an inheritance cycle.");
