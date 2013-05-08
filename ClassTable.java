@@ -1,4 +1,7 @@
 import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Enumeration;
 
 /** This class may be used to contain the semantic information such as
  * the inheritance graph.  You may use it or not as you like: it is only
@@ -175,7 +178,11 @@ class ClassTable {
 	semantErrors = 0;
 	errorStream = System.err;
 	
-	/* fill this in */
+	/* Build graph first out of class declarations */
+	if (Flags.semant_debug) {
+		System.out.println("Building a graph");
+	}
+	buildGraph(cls);
     }
 
     /** Prints line number and file name of the given class.
@@ -222,6 +229,61 @@ class ClassTable {
     public boolean errors() {
 	return semantErrors != 0;
     }
+
+    /** Builds an adjacency list representation of the inheritance graph **/
+    private void buildGraph(Classes classes) {
+	HashMap< String, ArrayList<String> > adjacencyList = new HashMap< String, ArrayList<String>>();
+	for (Enumeration e = classes.getElements(); e.hasMoreElements(); ) {
+	    class_c currentClass = ((class_c)e.nextElement());
+	    // if parent already present in HashMap, append child to list of children
+	    String parent = currentClass.getParent().toString();
+	    if ( !adjacencyList.containsKey(parent) ) {
+		adjacencyList.put(parent, new ArrayList<String>() );
+	    }
+	    adjacencyList.get(parent).add(currentClass.getName().toString());
+        }
+
+	// Do the depth first search of this adjacency list starting from Object
+	HashMap<String, Boolean> visited = new HashMap<String, Boolean>();
+	// Put the key for "Object" in the visited list
+	visited.put("Object", false);
+	for (String key : adjacencyList.keySet() ) {
+		visited.put(key, false);
+		for ( String value : adjacencyList.get(key) ) {
+			visited.put(value, false);
+		}
+	}
+	depthFirstSearch(visited, adjacencyList, new String("Object"));
+	// Check for unconnected components - Bogus inheritance
+	for (String key : visited.keySet()) {
+		if (!visited.get(key)) {
+			if (Flags.semant_debug) {
+			    System.out.println("Bogus class inheritance: " + key);
+			}
+		}
+	} 
+    }
+
+    /** Depth first traversal of the graph, checking for cycles **/
+    private Boolean depthFirstSearch(HashMap<String, Boolean> visited, HashMap< String, ArrayList<String> > adjacencyList, String node) {
+	if (visited.get(node)) {
+		if (Flags.semant_debug) {
+			System.out.println("Node: " + node + " visited twice");
+			return false;
+		}
+	}
+	visited.put(node, true);
+	if (adjacencyList.get(node) == null) {
+		return true;
+	}
+	for (String child : adjacencyList.get(node)) {
+		if (Flags.semant_debug) {
+			System.out.println("Traversing " + node + " --> " + child);
+		}
+		depthFirstSearch(visited, adjacencyList, child);
+	}
+	return true;
+    } 
 }
 			  
     
