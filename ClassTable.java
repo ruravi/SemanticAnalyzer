@@ -1,6 +1,6 @@
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.*;
 import java.util.Enumeration;
 
 /** This class may be used to contain the semantic information such as
@@ -9,6 +9,8 @@ import java.util.Enumeration;
 class ClassTable {
     private int semantErrors;
     private PrintStream errorStream;
+    private HashMap< String, ArrayList<String> > adjacencyList;
+	private HashMap<String, class_c> nameToClass;
 
     /** Creates data structures representing basic Cool classes (Object,
      * IO, Int, Bool, String).  Please note: as is this method does not
@@ -169,7 +171,17 @@ class ClassTable {
 
 	/* Do somethind with Object_class, IO_class, Int_class,
            Bool_class, and Str_class here */
-
+    nameToClass.put(TreeConstants.Object_.getString(), Object_class);
+    nameToClass.put(TreeConstants.IO.getString(), IO_class);
+    nameToClass.put(TreeConstants.Int.getString(), Int_class);
+    nameToClass.put(TreeConstants.Bool.getString(), Bool_class);
+    nameToClass.put(TreeConstants.Str.getString(), Str_class);
+    adjacencyList.put(TreeConstants.Object_.getString(), new ArrayList<String>() );
+    adjacencyList.put(TreeConstants.IO.getString(), new ArrayList<String>() );
+    adjacencyList.put(TreeConstants.Int.getString(), new ArrayList<String>() );
+    adjacencyList.put(TreeConstants.Bool.getString(), new ArrayList<String>() );
+    adjacencyList.put(TreeConstants.Str.getString(), new ArrayList<String>() );
+    // Do the same for other basic classes
     }
 	
 
@@ -182,6 +194,9 @@ class ClassTable {
 	if (Flags.semant_debug) {
 		System.out.println("Building a graph");
 	}
+	adjacencyList = new HashMap< String, ArrayList<String>>();
+	nameToClass = new HashMap<String, class_c>();
+	installBasicClasses();
 	buildGraph(cls);
     }
 
@@ -230,11 +245,14 @@ class ClassTable {
 	return semantErrors != 0;
     }
 
-    /** Builds an adjacency list representation of the inheritance graph **/
+    /** Builds an adjacency list representation of the inheritance graph 
+     and also checks of the graph has no cycles **/
     private void buildGraph(Classes classes) {
-	HashMap< String, ArrayList<String> > adjacencyList = new HashMap< String, ArrayList<String>>();
+	
+	adjacencyList.put("Object", new ArrayList<String>() );
 	for (Enumeration e = classes.getElements(); e.hasMoreElements(); ) {
 	    class_c currentClass = ((class_c)e.nextElement());
+	    nameToClass.put(currentClass.getName().toString(), currentClass);
 	    // if parent already present in HashMap, append child to list of children
 	    String parent = currentClass.getParent().toString();
 	    if ( !adjacencyList.containsKey(parent) ) {
@@ -243,6 +261,28 @@ class ClassTable {
 	    adjacencyList.get(parent).add(currentClass.getName().toString());
         }
 
+    // Check if each parent in a parent-child inheritance is a valid class
+    HashSet<String> bogusClasses = new HashSet<String>();
+    for (String parent : adjacencyList.keySet()) {
+    	if (!nameToClass.containsKey(parent)) {
+    		for (String child: adjacencyList.get(parent)) {
+    			semantError(nameToClass.get(child)).println("Class " + child + " inherits from an undefined class " + parent);
+    		}
+    		// Remove the bogus parent class from the graph
+    		bogusClasses.add(parent);
+    	}
+    }
+    // Remove the bogus parent class from the graph
+    for (String bogus : bogusClasses) {
+    	adjacencyList.remove(bogus);
+    }
+
+    if (Flags.semant_debug) {
+    	System.out.println("Pruned out unreachable classes");
+    }
+
+    // It is illegal to inherit from Bool, Int or String
+    
 	// Do the depth first search of this adjacency list starting from Object
 	HashMap<String, Boolean> visited = new HashMap<String, Boolean>();
 	// Put the key for "Object" in the visited list
@@ -253,24 +293,28 @@ class ClassTable {
 			visited.put(value, false);
 		}
 	}
-	depthFirstSearch(visited, adjacencyList, new String("Object"));
-	// Check for unconnected components - Bogus inheritance
+	depthFirstSearch(visited, "Object");
+	// Check for unreachable components - unreachable classes are cycles
 	for (String key : visited.keySet()) {
 		if (!visited.get(key)) {
-			if (Flags.semant_debug) {
-			    System.out.println("Bogus class inheritance: " + key);
-			}
+			semantError(nameToClass.get(key)).println("Class " + key + " or an ancestor is involved in an inheritance cycle.");
 		}
 	} 
+
+	if (Flags.semant_debug) {
+		System.out.println("Checked for cycles");
+	}
     }
 
     /** Depth first traversal of the graph, checking for cycles **/
-    private Boolean depthFirstSearch(HashMap<String, Boolean> visited, HashMap< String, ArrayList<String> > adjacencyList, String node) {
+    private Boolean depthFirstSearch(HashMap<String, Boolean> visited, String node) {
 	if (visited.get(node)) {
+		// This can actually never happen
 		if (Flags.semant_debug) {
 			System.out.println("Node: " + node + " visited twice");
-			return false;
 		}
+		semantError(nameToClass.get(node)).println("Class " + node + ", or its ancestors, is invloved in a cycle");
+		return false;
 	}
 	visited.put(node, true);
 	if (adjacencyList.get(node) == null) {
@@ -280,10 +324,8 @@ class ClassTable {
 		if (Flags.semant_debug) {
 			System.out.println("Traversing " + node + " --> " + child);
 		}
-		depthFirstSearch(visited, adjacencyList, child);
+		depthFirstSearch(visited, child);
 	}
 	return true;
     } 
 }
-			  
-    
