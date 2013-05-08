@@ -267,7 +267,7 @@ class ClassTable {
 		adjacencyList.put(parent, new ArrayList<String>() );
 	    }
 	    adjacencyList.get(parent).add(currentClass.getName().toString());
-        }
+	}
 
     // Check if each parent in a parent-child inheritance is a valid class
     HashSet<String> bogusClasses = new HashSet<String>();
@@ -284,13 +284,29 @@ class ClassTable {
     for (String bogus : bogusClasses) {
     	adjacencyList.remove(bogus);
     }
-
     if (Flags.semant_debug) {
     	System.out.println("Pruned out unreachable classes");
     }
 
-    // It is illegal to inherit from Bool, Int or String
+    // Also check if someone's inheriting from the Basic classes other than Object & IO
+    for (String child : adjacencyList.get(TreeConstants.Int.getString())) {
+    	semantError(nameToClass.get(child)).println("Class " + child + " illegally inherits from class Int");
+    }
+    for (String child : adjacencyList.get(TreeConstants.Str.getString())) {
+    	semantError(nameToClass.get(child)).println("Class " + child + " illegally inherits from class Str");
+    }
+    for (String child : adjacencyList.get(TreeConstants.Bool.getString())) {
+    	semantError(nameToClass.get(child)).println("Class " + child + " illegally inherits from class Bool");
+    }
+    // No point in continuing further. The above
+    if (Flags.semant_debug) {
+    	System.out.println("Checked for simple inheritance errors");
+    }
+    if (errors()) {
+    	return;
+    }
 
+	// Now check fro cycles
 	// Do the depth first search of this adjacency list starting from Object
 	HashMap<String, Boolean> visited = new HashMap<String, Boolean>();
 	for (String key : adjacencyList.keySet() ) {
@@ -300,6 +316,8 @@ class ClassTable {
 		}
 	}
 	depthFirstSearch(visited, "Object");
+	// It is legal to inherit from the IO class. So mark classes down that tree as well
+	depthFirstSearch(visited, TreeConstants.IO.getString());
 	// Check for unreachable components - unreachable classes are cycles
 	// Except the Bool, IO, Int and String. Hack - set them to true
 	visited.put(TreeConstants.IO.getString(), true);
