@@ -267,11 +267,28 @@ class programc extends Program {
 	ClassTable classTable = new ClassTable(classes);
 	
 	/* some semantic analysis code may go here */
+    /* Initialize two SymbolTables - one for method and one for objects */
+    SymbolTable objectSymTab = new SymbolTable();
+    SymbolTable methodSymTab = new SymbolTable();
+    /* TODO: May need a variable to keep track of the current class */
+
+    /* Traverse the AST top-down and when the leaves are reached, fill in the type information
+        as we're winding back up 
+    */
+    traverseAST(classes);
 
 	if (classTable.errors()) {
 	    System.err.println("Compilation halted due to static semantic errors.");
 	    System.exit(1);
 	}
+    }
+
+    /** Traverses AST and does 1. Scoping 2. Type Checking **/
+    private void traverseAST(Classes classes) {
+        /* Loop through each class */
+        for (Enumeration e = classes.getElements(); e.hasMoreElements(); ) {
+            Class_ currentClass = ((Class_)e.nextElement());
+        }
     }
 
 }
