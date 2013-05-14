@@ -9,7 +9,7 @@
 import java.util.Enumeration;
 import java.io.PrintStream;
 import java.util.Vector;
-
+import java.util.*;
 
 /** Defines simple phylum Program */
 abstract class Program extends TreeNode {
@@ -220,6 +220,10 @@ class Cases extends ListNode {
     <p>
     See <a href="TreeNode.html">TreeNode</a> for full documentation. */
 class programc extends Program {
+    /* Initialize two SymbolTables - one for method and one for objects */
+    SymbolTable objectSymTab = new SymbolTable(); 
+    SymbolTable methodSymTab = new SymbolTable();
+    HashMap< String, HashMap< String, ArrayList<AbstractSymbol>>> methodEnvironment;
     protected Classes classes;
     /** Creates "programc" AST node. 
       *
@@ -267,9 +271,6 @@ class programc extends Program {
 	ClassTable classTable = new ClassTable(classes);
 	
 	/* some semantic analysis code may go here */
-    /* Initialize two SymbolTables - one for method and one for objects */
-    SymbolTable objectSymTab = new SymbolTable();
-    SymbolTable methodSymTab = new SymbolTable();
     /* TODO: May need a variable to keep track of the current class */
 
     /* Traverse the AST top-down and when the leaves are reached, fill in the type information
@@ -285,8 +286,9 @@ class programc extends Program {
 
     /** Traverses AST and does 1. Scoping 2. Type Checking **/
     private void traverseAST(Classes classes, SymbolTable objectSymTab, SymbolTable methodSymTab) {
+	methodEnvironment = new HashMap< String, HashMap< String, ArrayList<AbstractSymbol>>>(); 
         /* Loop through each class */
-        for (Enumeration e = classes.getElements(); e.hasMoreElements(); ) {
+	for (Enumeration e = classes.getElements(); e.hasMoreElements(); ) {
             class_c currentClass = ((class_c)e.nextElement());
 	    if (Flags.semant_debug) {
                System.out.println("Class " + currentClass.getName().toString());
@@ -294,16 +296,44 @@ class programc extends Program {
 	    /* Inside each class, start new scope, traverse down the class AST */
 	    objectSymTab.enterScope();
 	    methodSymTab.enterScope();
+	    methodEnvironment.put(currentClass.getName().toString(), new HashMap<String,ArrayList<AbstractSymbol>>());
 	    Features features = currentClass.getFeatures();
-	    for (e = features.getElements(); e.hasMoreElements();) {
-		Feature f = ((Feature)e.nextElement());
+	    for (Enumeration fe = features.getElements(); fe.hasMoreElements();) {
+		Feature f = ((Feature)fe.nextElement());
 	        if ( f instanceof attr ) {
 		    System.out.println("Attribute ");
 		} else {
-			System.out.println("Method ");
+		    if (Flags.semant_debug) {
+		    	System.out.println("Traversing Method : " + ((method)f).getName().toString());
+		    }
+		    // Add method to method Symbol Table,TODO if already present, scope error
+		    methodSymTab.addId(((method)f).getName(), ((method)f).getReturnType());
+		    traverseMethod(currentClass.getName().toString(), ((method)f));
 		}	
 	    }
+	    objectSymTab.exitScope();
+	    methodSymTab.exitScope();
         }
+    }
+
+    /** Traverse method. Check formal parameters, return type and expressions **/
+    private void traverseMethod(String className, method m) {
+	// Start a new scope
+	objectSymTab.enterScope();
+	// Traverse formal arguments, adding them to scope
+	Formals formals = m.getFormals();
+	String methodname = m.getName().toString();
+	for (Enumeration e = formals.getElements(); e.hasMoreElements();) {
+                formalc formal = ((formalc)e.nextElement());
+		objectSymTab.addId(formal.getName(), formal.getType());
+		if (methodEnvironment.get(className).get(methodname) == null) {
+			methodEnvironment.get(className).put(methodname, new ArrayList<AbstractSymbol>());
+		}
+		methodEnvironment.get(className).get(methodname).add(formal.getType());
+	}
+	// Traverse expression
+
+	objectSymTab.exitScope();
     }
 
 }
@@ -392,6 +422,12 @@ class method extends Feature {
     public TreeNode copy() {
         return new method(lineNumber, copy_AbstractSymbol(name), (Formals)formals.copy(), copy_AbstractSymbol(return_type), (Expression)expr.copy());
     }
+
+    public AbstractSymbol getName() { return name;	}
+    public Formals getFormals()	{ return formals;	}
+    public Expression getExpression()	{ return expr;	}
+    public AbstractSymbol getReturnType()	{  return return_type;	}
+
     public void dump(PrintStream out, int n) {
         out.print(Utilities.pad(n) + "method\n");
         dump_AbstractSymbol(out, n+2, name);
@@ -483,6 +519,8 @@ class formalc extends Formal {
         dump_AbstractSymbol(out, n+2, type_decl);
     }
 
+    public AbstractSymbol getName()	{ return name;	}
+    public AbstractSymbol getType()	{ return type_decl;	}
     
     public void dump_with_types(PrintStream out, int n) {
         dump_line(out, n);
