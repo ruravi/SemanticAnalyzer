@@ -275,7 +275,7 @@ class programc extends Program {
     /* Traverse the AST top-down and when the leaves are reached, fill in the type information
         as we're winding back up 
     */
-    traverseAST(classes);
+    traverseAST(classes, objectSymTab, methodSymTab);
 
 	if (classTable.errors()) {
 	    System.err.println("Compilation halted due to static semantic errors.");
@@ -284,10 +284,25 @@ class programc extends Program {
     }
 
     /** Traverses AST and does 1. Scoping 2. Type Checking **/
-    private void traverseAST(Classes classes) {
+    private void traverseAST(Classes classes, SymbolTable objectSymTab, SymbolTable methodSymTab) {
         /* Loop through each class */
         for (Enumeration e = classes.getElements(); e.hasMoreElements(); ) {
-            Class_ currentClass = ((Class_)e.nextElement());
+            class_c currentClass = ((class_c)e.nextElement());
+	    if (Flags.semant_debug) {
+               System.out.println("Class " + currentClass.getName().toString());
+            }
+	    /* Inside each class, start new scope, traverse down the class AST */
+	    objectSymTab.enterScope();
+	    methodSymTab.enterScope();
+	    Features features = currentClass.getFeatures();
+	    for (e = features.getElements(); e.hasMoreElements();) {
+		Feature f = ((Feature)e.nextElement());
+	        if ( f instanceof attr ) {
+		    System.out.println("Attribute ");
+		} else {
+			System.out.println("Method ");
+		}	
+	    }
         }
     }
 
@@ -332,6 +347,7 @@ class class_c extends Class_ {
     public AbstractSymbol getFilename() { return filename; }
     public AbstractSymbol getName()     { return name; }
     public AbstractSymbol getParent()   { return parent; }
+    public Features getFeatures() { return features; }
 
     public void dump_with_types(PrintStream out, int n) {
         dump_line(out, n);
