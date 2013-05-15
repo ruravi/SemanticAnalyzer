@@ -364,10 +364,12 @@ class programc extends Program {
     /** Depending on what kind of expression, traverse down and fill in types and do scoping **/
     private void traverseExpression(class_c currentClass, Expression expression) {
         if (expression instanceof object) {
-            // Set the type of this object from the symbol table, if it exists
-            if (objectSymTab.lookup(((object)expression).getName()) == null) {
+            if ( ((object)expression).getName() == TreeConstants.self ) {
+                expression.set_type(TreeConstants.SELF_TYPE);
+            } else if (objectSymTab.lookup(((object)expression).getName()) == null) {
                 classTable.semantError(currentClass.getFilename(),expression).println("Undeclared identifier " + ((object)expression).getName());
             } else {
+                // Set the type of this object from the symbol table, if it exists
                 expression.set_type((AbstractSymbol)objectSymTab.lookup(((object)expression).getName()));
             }
         } else if (expression instanceof string_const) {
@@ -415,6 +417,43 @@ class programc extends Program {
             expression.set_type(TreeConstants.Int);
             traverseExpression(currentClass, ((plus)expression).getLHS());
             traverseExpression(currentClass, ((plus)expression).getRHS());
+        } else if (expression instanceof loop) {
+            expression.set_type(TreeConstants.Object_);
+            traverseExpression(currentClass, ((loop)expression).getPredicate());
+            traverseExpression(currentClass, ((loop)expression).getBody());
+        } else if (expression instanceof let) {
+            // Start a new scope, and add ID to symboltable
+            objectSymTab.enterScope();
+            let letExpression = (let)expression;
+            objectSymTab.addId(letExpression.getIdentifier(), letExpression.getType());
+            traverseExpression(currentClass, letExpression.getInit());
+            traverseExpression(currentClass, letExpression.getBody());
+            // The type of let is the type if the last statement in the body
+            letExpression.set_type(letExpression.getBody().get_type());
+            objectSymTab.exitScope();
+        } else if (expression instanceof block) {
+            // Type of block is type of last expression
+            Expressions body = ((block)expression).getBody();
+            AbstractSymbol lastType = null;
+            for (Enumeration e = body.getElements(); e.hasMoreElements();) {
+                Expression nextExpression = (Expression)e.nextElement();
+                traverseExpression(currentClass, nextExpression);
+                lastType = nextExpression.get_type();
+            }
+            expression.set_type(lastType);
+        } else if (expression instanceof static_dispatch) {
+            static_dispatch e = (static_dispatch)expression;
+            traverseExpression( currentClass, e.getExpression());
+            for (Enumeration enumer = e.getActual().getElements(); enumer.hasMoreElements();) {
+                traverseExpression(currentClass, ((Expression)enumer.nextElement()));
+            }
+        } else if (expression instanceof assign) {
+            if (objectSymTab.lookup(((assign)expression).getName()) == null) {
+                classTable.semantError(currentClass.getFilename(),expression).println("Undeclared identifier " + ((assign)expression).getName());
+            }
+            Expression e = ((assign)expression).getExpression();
+            traverseExpression( currentClass, e);
+            expression.set_type(e.get_type());
         }
     }
 }
@@ -698,6 +737,8 @@ class assign extends Expression {
 	dump_type(out, n);
     }
 
+    public AbstractSymbol getName() { return name;  }
+    public Expression getExpression()   { return expr;  }
 }
 
 
@@ -750,6 +791,10 @@ class static_dispatch extends Expression {
 	dump_type(out, n);
     }
 
+    public Expression getExpression()   { return expr;  }
+    public AbstractSymbol getTypeName() { return type_name; }
+    public AbstractSymbol getName() { return name;  }
+    public Expressions getActual()  { return actual;    }
 }
 
 
@@ -878,6 +923,8 @@ class loop extends Expression {
 	dump_type(out, n);
     }
 
+    public Expression getPredicate()    { return pred;  }
+    public Expression getBody() { return body;  }
 }
 
 
@@ -953,6 +1000,7 @@ class block extends Expression {
 	dump_type(out, n);
     }
 
+    public Expressions getBody()    { return body;  }
 }
 
 
@@ -1001,6 +1049,10 @@ class let extends Expression {
 	dump_type(out, n);
     }
 
+    public AbstractSymbol getIdentifier()   { return identifier;    }
+    public AbstractSymbol getType() { return type_decl; }
+    public Expression getInit() { return init;  }
+    public Expression getBody() { return body;  }
 }
 
 
