@@ -225,6 +225,7 @@ class programc extends Program {
     SymbolTable methodSymTab = new SymbolTable();
     HashMap< String, HashMap< String, ArrayList<AbstractSymbol>>> methodEnvironment;
     protected Classes classes;
+    ClassTable classTable;
     /** Creates "programc" AST node. 
       *
       * @param lineNumber the line in the source file from which this node came.
@@ -268,7 +269,7 @@ class programc extends Program {
     */
     public void semant() {
 	/* ClassTable constructor may do some semantic analysis */
-	ClassTable classTable = new ClassTable(classes);
+	classTable = new ClassTable(classes);
 	
 	/* some semantic analysis code may go here */
     /* TODO: May need a variable to keep track of the current class */
@@ -306,7 +307,11 @@ class programc extends Program {
 		    if (Flags.semant_debug) {
 		    	System.out.println("Traversing Method : " + ((method)f).getName().toString());
 		    }
-		    // Add method to method Symbol Table,TODO if already present, scope error
+		    // Add method to method Symbol Table,if already present, scope error
+		    if (methodSymTab.lookup(((method)f).getName()) != null) {
+			classTable.semantError(currentClass).println("Method " + ((method)f).getName().toString() + " is multiply defined");
+		    }
+		    // Recover from multiply defined method. Just overwrite it
 		    methodSymTab.addId(((method)f).getName(), ((method)f).getReturnType());
 		    traverseMethod(currentClass.getName().toString(), ((method)f));
 		}	
@@ -325,6 +330,10 @@ class programc extends Program {
 	String methodname = m.getName().toString();
 	for (Enumeration e = formals.getElements(); e.hasMoreElements();) {
                 formalc formal = ((formalc)e.nextElement());
+		if (objectSymTab.lookup(formal.getName()) != null) {
+			classTable.semantError().println("Formal parameter " + formal.getName().toString() + " is multiply defined");
+		}
+		// Recover from multiply defined formal parameter. Just overwrite it
 		objectSymTab.addId(formal.getName(), formal.getType());
 		if (methodEnvironment.get(className).get(methodname) == null) {
 			methodEnvironment.get(className).put(methodname, new ArrayList<AbstractSymbol>());
