@@ -381,6 +381,40 @@ class programc extends Program {
             traverseExpression(currentClass, ((isvoid)expression).getExpression());
         } else if (expression instanceof new_) {
             expression.set_type(((new_)expression).getTypeName());
+        } else if (expression instanceof comp) {
+            expression.set_type(TreeConstants.Bool);
+            traverseExpression(currentClass, ((comp)expression).getExpression());
+        } else if (expression instanceof eq) {
+            expression.set_type(TreeConstants.Bool);
+            traverseExpression(currentClass, ((eq)expression).getLHS());
+            traverseExpression(currentClass, ((eq)expression).getRHS());
+        } else if (expression instanceof leq) {
+            expression.set_type(TreeConstants.Bool);
+            traverseExpression(currentClass, ((leq)expression).getLHS());
+            traverseExpression(currentClass, ((leq)expression).getRHS());
+        } else if (expression instanceof lt) {
+            expression.set_type(TreeConstants.Bool);
+            traverseExpression(currentClass, ((lt)expression).getLHS());
+            traverseExpression(currentClass, ((lt)expression).getRHS());
+        } else if (expression instanceof neg) {
+            expression.set_type(TreeConstants.Int);
+            traverseExpression(currentClass, ((neg)expression).getExpression());
+        } else if (expression instanceof divide) {
+            expression.set_type(TreeConstants.Int);
+            traverseExpression(currentClass, ((divide)expression).getLHS());
+            traverseExpression(currentClass, ((divide)expression).getRHS());
+        } else if (expression instanceof sub) {
+            expression.set_type(TreeConstants.Int);
+            traverseExpression(currentClass, ((sub)expression).getLHS());
+            traverseExpression(currentClass, ((sub)expression).getRHS());
+        } else if (expression instanceof mul) {
+            expression.set_type(TreeConstants.Int);
+            traverseExpression(currentClass, ((mul)expression).getLHS());
+            traverseExpression(currentClass, ((mul)expression).getRHS());
+        } else if (expression instanceof plus) {
+            expression.set_type(TreeConstants.Int);
+            traverseExpression(currentClass, ((plus)expression).getLHS());
+            traverseExpression(currentClass, ((plus)expression).getRHS());
         }
     }
 }
@@ -1005,6 +1039,8 @@ class plus extends Expression {
 	dump_type(out, n);
     }
 
+    public Expression getLHS()  { return e1;    }
+    public Expression getRHS()   { return e2;    }
 }
 
 
@@ -1043,6 +1079,8 @@ class sub extends Expression {
 	dump_type(out, n);
     }
 
+    public Expression getLHS()  { return e1;    }
+    public Expression getRHS()   { return e2;    }
 }
 
 
@@ -1080,6 +1118,9 @@ class mul extends Expression {
 	e2.dump_with_types(out, n + 2);
 	dump_type(out, n);
     }
+
+    public Expression getLHS()  { return e1;    }
+    public Expression getRHS()   { return e2;    }    
 
 }
 
@@ -1119,6 +1160,8 @@ class divide extends Expression {
 	dump_type(out, n);
     }
 
+    public Expression getLHS()  { return e1;    }
+    public Expression getRHS()   { return e2;    }
 }
 
 
@@ -1152,6 +1195,7 @@ class neg extends Expression {
 	dump_type(out, n);
     }
 
+    public Expression getExpression()   { return e1;    }
 }
 
 
@@ -1190,6 +1234,8 @@ class lt extends Expression {
 	dump_type(out, n);
     }
 
+    public Expression getLHS()  { return e1;    }
+    public Expression getRHS()   { return e2;    }
 }
 
 
@@ -1228,6 +1274,8 @@ class eq extends Expression {
 	dump_type(out, n);
     }
 
+    public Expression getLHS()  { return e1;    }
+    public Expression getRHS()   { return e2;    }
 }
 
 
@@ -1266,6 +1314,8 @@ class leq extends Expression {
 	dump_type(out, n);
     }
 
+    public Expression getLHS()  { return e1;    }
+    public Expression getRHS()   { return e2;    }
 }
 
 
@@ -1299,6 +1349,7 @@ class comp extends Expression {
 	dump_type(out, n);
     }
 
+    public Expression getExpression() { return e1;  }
 }
 
 
