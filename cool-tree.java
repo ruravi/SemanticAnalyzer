@@ -315,7 +315,7 @@ class programc extends Program {
 		    
   	 	    //add attribute to symbol table, overwrite if already there
 		    objectSymTab.addId(((attr)f).getName(), ((attr)f).getType());
-		    //traverseExpression(currentClass, ((attr)f));
+		    traverseExpression(currentClass, ((attr)f).getExpression());
 
 		} else {
 		    if (Flags.semant_debug) {
