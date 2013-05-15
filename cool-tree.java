@@ -304,7 +304,19 @@ class programc extends Program {
 	    for (Enumeration fe = features.getElements(); fe.hasMoreElements();) {
 		Feature f = ((Feature)fe.nextElement());
 	        if ( f instanceof attr ) {
-		    System.out.println("Attribute ");
+		    //System.out.println("Attribute ");
+ 		    if (Flags.semant_debug) {
+		    	System.out.println("Traversing Attribute : " + ((attr)f).getName().toString());
+		    }
+		    // Add attribute to object Symbol Table,if already present, scope error
+		    if (objectSymTab.lookup(((attr)f).getName()) != null) {
+			classTable.semantError(currentClass.getFilename(), f).println("Attribute " + ((attr)f).getName().toString() + " is multiply defined");
+		    }
+		    
+  	 	    //add attribute to symbol table, overwrite if already there
+		    objectSymTab.addId(((attr)f).getName(), ((attr)f).getType());
+		    //traverseExpression(currentClass, ((attr)f));
+
 		} else {
 		    if (Flags.semant_debug) {
 		    	System.out.println("Traversing Method : " + ((method)f).getName().toString());
@@ -509,6 +521,14 @@ class attr extends Feature {
     public TreeNode copy() {
         return new attr(lineNumber, copy_AbstractSymbol(name), copy_AbstractSymbol(type_decl), (Expression)init.copy());
     }
+
+    //helper functions added in
+    public AbstractSymbol getName() { return name;	}
+    public Expression getExpression()	{ return init;	}
+    public AbstractSymbol getType()	{  return type_decl;	}
+
+
+
     public void dump(PrintStream out, int n) {
         out.print(Utilities.pad(n) + "attr\n");
         dump_AbstractSymbol(out, n+2, name);
