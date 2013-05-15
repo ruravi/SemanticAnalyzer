@@ -298,7 +298,7 @@ class ClassTable {
     for (String child : adjacencyList.get(TreeConstants.Bool.getString())) {
     	semantError(nameToClass.get(child)).println("Class " + child + " illegally inherits from class Bool");
     }
-    // No point in continuing further. The above
+    // No point in continuing further. The above classes are going to propagate more errors
     if (Flags.semant_debug) {
     	System.out.println("Checked for simple inheritance errors");
     }
@@ -306,7 +306,7 @@ class ClassTable {
     	return;
     }
 
-	// Now check fro cycles
+	// Now check for cycles
 	// Do the depth first search of this adjacency list starting from Object
 	HashMap<String, Boolean> visited = new HashMap<String, Boolean>();
 	for (String key : adjacencyList.keySet() ) {
@@ -333,7 +333,7 @@ class ClassTable {
 	if (Flags.semant_debug) {
 		System.out.println("Checked for cycles");
 	}
-    }
+	}
 
     /** Depth first traversal of the graph, checking for cycles **/
     private Boolean depthFirstSearch(HashMap<String, Boolean> visited, String node) {
@@ -357,4 +357,29 @@ class ClassTable {
 	}
 	return true;
     } 
+
+    public Boolean isValidType(AbstractSymbol type) {
+    	return nameToClass.containsKey(type.toString());
+    }
+
+    /** Checks if C1 <= C2		**/
+    public Boolean checkConformance(AbstractSymbol C1, AbstractSymbol C2) {
+    	if ( C1 == C2 ) {
+    		return true;
+    	}
+    	// Check for a path from C2 to reach C1
+    	return isReachable(C1, C2);
+    }
+
+    /** Checks if C1 is reachable from C2 **/
+    private Boolean isReachable(String C1, String C2) {
+    	for (String child : adjacencyList.get(C2)) {
+    		if (child.equals(C1) {
+    			return true;
+    		} else if ( isReachable(C1, child ) ) {
+    			return true;
+    		}
+    	}
+    	return false;
+    }
 }
