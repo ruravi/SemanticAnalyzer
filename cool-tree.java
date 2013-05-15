@@ -358,6 +358,17 @@ class programc extends Program {
             } else {
                 expression.set_type((AbstractSymbol)objectSymTab.lookup(((object)expression).getName()));
             }
+        } else if (expression instanceof string_const) {
+            expression.set_type(TreeConstants.Str);
+        } else if (expression instanceof bool_const) {
+            expression.set_type(TreeConstants.Bool);
+        } else if (expression instanceof int_const) {
+            expression.set_type(TreeConstants.Int);
+        } else if (expression instanceof isvoid) {
+            expression.set_type(TreeConstants.Bool);
+            traverseExpression(currentClass, ((isvoid)expression).getExpression());
+        } else if (expression instanceof new_) {
+            expression.set_type(((new_)expression).getTypeName());
         }
     }
 }
@@ -1402,6 +1413,7 @@ class new_ extends Expression {
 	dump_type(out, n);
     }
 
+    public AbstractSymbol getTypeName() { return type_name; }
 }
 
 
@@ -1435,6 +1447,7 @@ class isvoid extends Expression {
 	dump_type(out, n);
     }
 
+    public Expression getExpression() { return e1;  }
 }
 
 
