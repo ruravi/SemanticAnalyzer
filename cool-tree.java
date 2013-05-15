@@ -221,8 +221,8 @@ class Cases extends ListNode {
     See <a href="TreeNode.html">TreeNode</a> for full documentation. */
 class programc extends Program {
     /* Initialize two SymbolTables - one for method and one for objects */
-    SymbolTable objectSymTab = new SymbolTable(); 
-    SymbolTable methodSymTab = new SymbolTable();
+    HashMap<String, SymbolTable> objectSymTabMap = new HashMap<String, SymbolTable>(); 
+    HashMap<String, SymbolTable> methodSymTabMap = new HashMap<String, SymbolTable>();
     HashMap< String, HashMap< String, ArrayList<AbstractSymbol>>> methodEnvironment;
     protected Classes classes;
     ClassTable classTable;
@@ -279,7 +279,7 @@ class programc extends Program {
     */
     traverseAST(classes);
     /* Perform type checking with another traversal */
-    //traverseASTWithTypecheck(classes);
+    traverseASTWithTypecheck(classes);
 
 	if (classTable.errors()) {
 	    System.err.println("Compilation halted due to static semantic errors.");
@@ -297,12 +297,16 @@ class programc extends Program {
                System.out.println("Class " + currentClass.getName().toString());
             }
 	    /* Inside each class, start new scope, traverse down the class AST */
-	    objectSymTab.enterScope();
+	    objectSymTabMap.put(currentClass.getName().toString(), new SymbolTable());
+        SymbolTable objectSymTab = objectSymTabMap.get(currentClass.getName().toString());
+        methodSymTabMap.put(currentClass.getName().toString(), new SymbolTable());
+        SymbolTable methodSymTab = methodSymTabMap.get(currentClass.getName().toString());
+        objectSymTab.enterScope();
 	    methodSymTab.enterScope();
 	    methodEnvironment.put(currentClass.getName().toString(), new HashMap<String,ArrayList<AbstractSymbol>>());
 	    Features features = currentClass.getFeatures();
 	    for (Enumeration fe = features.getElements(); fe.hasMoreElements();) {
-		Feature f = ((Feature)fe.nextElement());
+            Feature f = ((Feature)fe.nextElement());
 	        if ( f instanceof attr ) {
 		    //System.out.println("Attribute ");
  		    if (Flags.semant_debug) {
@@ -315,9 +319,8 @@ class programc extends Program {
 		    
   	 	    //add attribute to symbol table, overwrite if already there
 		    objectSymTab.addId(((attr)f).getName(), ((attr)f).getType());
-		    traverseExpression(currentClass, ((attr)f).getExpression());
-
-		} else {
+		    traverseExpression(currentClass, ((attr)f).getExpression(), objectSymTab, methodSymTab);
+        } else {
 		    if (Flags.semant_debug) {
 		    	System.out.println("Traversing Method : " + ((method)f).getName().toString());
 		    }
@@ -327,16 +330,14 @@ class programc extends Program {
 		    }
 		    // Recover from multiply defined method. Just overwrite it
 		    methodSymTab.addId(((method)f).getName(), ((method)f).getReturnType());
-		    traverseMethod(currentClass, ((method)f));
+		    traverseMethod(currentClass, ((method)f), objectSymTab, methodSymTab);
 		}	
 	    }
-	    objectSymTab.exitScope();
-	    methodSymTab.exitScope();
         }
     }
 
     /** Traverse method. Check formal parameters, return type and expressions **/
-    private void traverseMethod(class_c currentClass, method m) {
+    private void traverseMethod(class_c currentClass, method m, SymbolTable objectSymTab, SymbolTable methodSymTab) {
 	String className = currentClass.getName().toString();
     // Start a new scope
 	objectSymTab.enterScope();
@@ -356,13 +357,13 @@ class programc extends Program {
 		methodEnvironment.get(className).get(methodname).add(formal.getType());
 	}
 	// Traverse expression
-    traverseExpression(currentClass, m.getExpression());
+    traverseExpression(currentClass, m.getExpression(), objectSymTab, methodSymTab);
 
 	objectSymTab.exitScope();
     }
 
     /** Depending on what kind of expression, traverse down and fill in types and do scoping **/
-    private void traverseExpression(class_c currentClass, Expression expression) {
+    private void traverseExpression(class_c currentClass, Expression expression, SymbolTable objectSymTab, SymbolTable methodSymTab) {
         if (expression instanceof object) {
             if ( ((object)expression).getName() == TreeConstants.self ) {
                 expression.set_type(TreeConstants.SELF_TYPE);
@@ -380,54 +381,54 @@ class programc extends Program {
             expression.set_type(TreeConstants.Int);
         } else if (expression instanceof isvoid) {
             expression.set_type(TreeConstants.Bool);
-            traverseExpression(currentClass, ((isvoid)expression).getExpression());
+            traverseExpression(currentClass, ((isvoid)expression).getExpression(), objectSymTab, methodSymTab);
         } else if (expression instanceof new_) {
             expression.set_type(((new_)expression).getTypeName());
         } else if (expression instanceof comp) {
             expression.set_type(TreeConstants.Bool);
-            traverseExpression(currentClass, ((comp)expression).getExpression());
+            traverseExpression(currentClass, ((comp)expression).getExpression(), objectSymTab, methodSymTab);
         } else if (expression instanceof eq) {
             expression.set_type(TreeConstants.Bool);
-            traverseExpression(currentClass, ((eq)expression).getLHS());
-            traverseExpression(currentClass, ((eq)expression).getRHS());
+            traverseExpression(currentClass, ((eq)expression).getLHS(), objectSymTab, methodSymTab);
+            traverseExpression(currentClass, ((eq)expression).getRHS(), objectSymTab, methodSymTab);
         } else if (expression instanceof leq) {
             expression.set_type(TreeConstants.Bool);
-            traverseExpression(currentClass, ((leq)expression).getLHS());
-            traverseExpression(currentClass, ((leq)expression).getRHS());
+            traverseExpression(currentClass, ((leq)expression).getLHS(), objectSymTab, methodSymTab);
+            traverseExpression(currentClass, ((leq)expression).getRHS(), objectSymTab, methodSymTab);
         } else if (expression instanceof lt) {
             expression.set_type(TreeConstants.Bool);
-            traverseExpression(currentClass, ((lt)expression).getLHS());
-            traverseExpression(currentClass, ((lt)expression).getRHS());
+            traverseExpression(currentClass, ((lt)expression).getLHS(), objectSymTab, methodSymTab);
+            traverseExpression(currentClass, ((lt)expression).getRHS(), objectSymTab, methodSymTab);
         } else if (expression instanceof neg) {
             expression.set_type(TreeConstants.Int);
-            traverseExpression(currentClass, ((neg)expression).getExpression());
+            traverseExpression(currentClass, ((neg)expression).getExpression(), objectSymTab, methodSymTab);
         } else if (expression instanceof divide) {
             expression.set_type(TreeConstants.Int);
-            traverseExpression(currentClass, ((divide)expression).getLHS());
-            traverseExpression(currentClass, ((divide)expression).getRHS());
+            traverseExpression(currentClass, ((divide)expression).getLHS(), objectSymTab, methodSymTab);
+            traverseExpression(currentClass, ((divide)expression).getRHS(), objectSymTab, methodSymTab);
         } else if (expression instanceof sub) {
             expression.set_type(TreeConstants.Int);
-            traverseExpression(currentClass, ((sub)expression).getLHS());
-            traverseExpression(currentClass, ((sub)expression).getRHS());
+            traverseExpression(currentClass, ((sub)expression).getLHS(), objectSymTab, methodSymTab);
+            traverseExpression(currentClass, ((sub)expression).getRHS(), objectSymTab, methodSymTab);
         } else if (expression instanceof mul) {
             expression.set_type(TreeConstants.Int);
-            traverseExpression(currentClass, ((mul)expression).getLHS());
-            traverseExpression(currentClass, ((mul)expression).getRHS());
+            traverseExpression(currentClass, ((mul)expression).getLHS(), objectSymTab, methodSymTab);
+            traverseExpression(currentClass, ((mul)expression).getRHS(), objectSymTab, methodSymTab);
         } else if (expression instanceof plus) {
             expression.set_type(TreeConstants.Int);
-            traverseExpression(currentClass, ((plus)expression).getLHS());
-            traverseExpression(currentClass, ((plus)expression).getRHS());
+            traverseExpression(currentClass, ((plus)expression).getLHS(), objectSymTab, methodSymTab);
+            traverseExpression(currentClass, ((plus)expression).getRHS(), objectSymTab, methodSymTab);
         } else if (expression instanceof loop) {
             expression.set_type(TreeConstants.Object_);
-            traverseExpression(currentClass, ((loop)expression).getPredicate());
-            traverseExpression(currentClass, ((loop)expression).getBody());
+            traverseExpression(currentClass, ((loop)expression).getPredicate(), objectSymTab, methodSymTab);
+            traverseExpression(currentClass, ((loop)expression).getBody(), objectSymTab, methodSymTab);
         } else if (expression instanceof let) {
             // Start a new scope, and add ID to symboltable
             objectSymTab.enterScope();
             let letExpression = (let)expression;
             objectSymTab.addId(letExpression.getIdentifier(), letExpression.getType());
-            traverseExpression(currentClass, letExpression.getInit());
-            traverseExpression(currentClass, letExpression.getBody());
+            traverseExpression(currentClass, letExpression.getInit(), objectSymTab, methodSymTab);
+            traverseExpression(currentClass, letExpression.getBody(), objectSymTab, methodSymTab);
             // The type of let is the type if the last statement in the body
             letExpression.set_type(letExpression.getBody().get_type());
             objectSymTab.exitScope();
@@ -437,24 +438,60 @@ class programc extends Program {
             AbstractSymbol lastType = null;
             for (Enumeration e = body.getElements(); e.hasMoreElements();) {
                 Expression nextExpression = (Expression)e.nextElement();
-                traverseExpression(currentClass, nextExpression);
+                traverseExpression(currentClass, nextExpression, objectSymTab, methodSymTab);
                 lastType = nextExpression.get_type();
             }
             expression.set_type(lastType);
         } else if (expression instanceof static_dispatch) {
             static_dispatch e = (static_dispatch)expression;
-            traverseExpression( currentClass, e.getExpression());
+            traverseExpression( currentClass, e.getExpression(), objectSymTab, methodSymTab);
             for (Enumeration enumer = e.getActual().getElements(); enumer.hasMoreElements();) {
-                traverseExpression(currentClass, ((Expression)enumer.nextElement()));
+                traverseExpression(currentClass, ((Expression)enumer.nextElement()), objectSymTab, methodSymTab);
             }
         } else if (expression instanceof assign) {
             if (objectSymTab.lookup(((assign)expression).getName()) == null) {
                 classTable.semantError(currentClass.getFilename(),expression).println("Undeclared identifier " + ((assign)expression).getName());
             }
             Expression e = ((assign)expression).getExpression();
-            traverseExpression( currentClass, e);
+            traverseExpression( currentClass, e, objectSymTab, methodSymTab);
             expression.set_type(e.get_type());
         }
+    }
+
+    /** Second pass through AST to perform inheritence   **/
+    private void traverseASTWithTypecheck(Classes classes) {
+        // Start type checking from root
+        HashMap< String, class_c> classMap = new HashMap< String, class_c>();
+        for (Enumeration e = classes.getElements(); e.hasMoreElements(); ) {
+            class_c currentClass = ((class_c)e.nextElement());
+            classMap.put(currentClass.getName().toString(), currentClass);
+        }
+        setupInheritedClass(TreeConstants.Object_, classMap);
+    }
+
+    // Traverse the class graph and inherit methods/attributes from parent to child
+    private void setupInheritedClass(String currentClassName, HashMap< String, class_c> classMap) {
+        String parent = classTable.getParent(currentClass);
+        SymbolTable parentsSymTab = objectSymTabMap.get(parent);
+        SymbolTable parentsMethodSymTab = methodSymTabMap.get(parent);
+        SymbolTable myObjSymTab = objectSymTabMap.get(currentClass);
+        SymbolTable myMethSymTab = methodSymTabMap.get(currentClass);
+        // Check for properly overrideen attributes/methods
+        class_c currentClass = classMap.get(currentClassName);
+        Features features = currentClass.getFeatures();
+        for (Enumeration fe = features.getElements(); fe.hasMoreElements();) {
+            Feature f = ((Feature)fe.nextElement());
+            // An attribute cannot be overridden
+            if (f instanceof attr) {
+                if (parentsSymTab.lookup(((attr)f).getName()) != null) {
+                    semantError(currentClass, f).println("Attribute " + ((attr)f).getName() + " is an attribute of an inherited class");
+                }
+            } else {
+                // A method can, provided the signature is the same
+            }
+        }
+        /* For each id added to the outer scope hastable of the parent's symboltable,
+           inherit the id if not already present, if present throw an error  */
     }
 }
 
