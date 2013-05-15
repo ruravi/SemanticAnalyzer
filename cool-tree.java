@@ -275,9 +275,11 @@ class programc extends Program {
     /* TODO: May need a variable to keep track of the current class */
 
     /* Traverse the AST top-down and when the leaves are reached, fill in the type information
-        as we're winding back up 
+        as we're winding back up. This does Scoping/Naming 
     */
-    traverseAST(classes, objectSymTab, methodSymTab);
+    traverseAST(classes);
+    /* Perform type checking with another traversal */
+    //traverseASTWithTypecheck(classes);
 
 	if (classTable.errors()) {
 	    System.err.println("Compilation halted due to static semantic errors.");
@@ -286,7 +288,7 @@ class programc extends Program {
     }
 
     /** Traverses AST and does 1. Scoping 2. Type Checking **/
-    private void traverseAST(Classes classes, SymbolTable objectSymTab, SymbolTable methodSymTab) {
+    private void traverseAST(Classes classes) {
 	methodEnvironment = new HashMap< String, HashMap< String, ArrayList<AbstractSymbol>>>(); 
         /* Loop through each class */
 	for (Enumeration e = classes.getElements(); e.hasMoreElements(); ) {
@@ -309,11 +311,11 @@ class programc extends Program {
 		    }
 		    // Add method to method Symbol Table,if already present, scope error
 		    if (methodSymTab.lookup(((method)f).getName()) != null) {
-			classTable.semantError(currentClass).println("Method " + ((method)f).getName().toString() + " is multiply defined");
+			classTable.semantError(currentClass.getFilename(), f).println("Method " + ((method)f).getName().toString() + " is multiply defined");
 		    }
 		    // Recover from multiply defined method. Just overwrite it
 		    methodSymTab.addId(((method)f).getName(), ((method)f).getReturnType());
-		    traverseMethod(currentClass.getName().toString(), ((method)f));
+		    traverseMethod(currentClass, ((method)f));
 		}	
 	    }
 	    objectSymTab.exitScope();
@@ -322,16 +324,17 @@ class programc extends Program {
     }
 
     /** Traverse method. Check formal parameters, return type and expressions **/
-    private void traverseMethod(String className, method m) {
-	// Start a new scope
+    private void traverseMethod(class_c currentClass, method m) {
+	String className = currentClass.getName().toString();
+    // Start a new scope
 	objectSymTab.enterScope();
 	// Traverse formal arguments, adding them to scope
 	Formals formals = m.getFormals();
 	String methodname = m.getName().toString();
 	for (Enumeration e = formals.getElements(); e.hasMoreElements();) {
-                formalc formal = ((formalc)e.nextElement());
+        formalc formal = ((formalc)e.nextElement());
 		if (objectSymTab.lookup(formal.getName()) != null) {
-			classTable.semantError().println("Formal parameter " + formal.getName().toString() + " is multiply defined");
+			classTable.semantError(currentClass.getFilename(), formal).println("Formal parameter " + formal.getName().toString() + " is multiply defined");
 		}
 		// Recover from multiply defined formal parameter. Just overwrite it
 		objectSymTab.addId(formal.getName(), formal.getType());
@@ -341,10 +344,22 @@ class programc extends Program {
 		methodEnvironment.get(className).get(methodname).add(formal.getType());
 	}
 	// Traverse expression
+    traverseExpression(currentClass, m.getExpression());
 
 	objectSymTab.exitScope();
     }
 
+    /** Depending on what kind of expression, traverse down and fill in types and do scoping **/
+    private void traverseExpression(class_c currentClass, Expression expression) {
+        if (expression instanceof object) {
+            // Set the type of this object from the symbol table, if it exists
+            if (objectSymTab.lookup(((object)expression).getName()) == null) {
+                classTable.semantError(currentClass.getFilename(),expression).println("Undeclared identifier " + ((object)expression).getName());
+            } else {
+                expression.set_type((AbstractSymbol)objectSymTab.lookup(((object)expression).getName()));
+            }
+        }
+    }
 }
 
 
@@ -1481,6 +1496,7 @@ class object extends Expression {
 	dump_type(out, n);
     }
 
+    public AbstractSymbol getName()     { return name;  }
 }
 
 
