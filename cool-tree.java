@@ -220,9 +220,9 @@ class Cases extends ListNode {
     <p>
     See <a href="TreeNode.html">TreeNode</a> for full documentation. */
 class programc extends Program {
-    /* Initialize two SymbolTables - one for method and one for objects */
-    HashMap<String, SymbolTable> objectSymTabMap = new HashMap<String, SymbolTable>(); 
-    HashMap<String, SymbolTable> methodSymTabMap = new HashMap<String, SymbolTable>();
+    /* Initialize two MySymbolTables - one for method and one for objects */
+    HashMap<String, MySymbolTable> objectSymTabMap = new HashMap<String, MySymbolTable>(); 
+    HashMap<String, MySymbolTable> methodSymTabMap = new HashMap<String, MySymbolTable>();
     HashMap< String, HashMap< String, ArrayList<AbstractSymbol>>> methodEnvironment;
     protected Classes classes;
     ClassTable classTable;
@@ -271,39 +271,41 @@ class programc extends Program {
 	/* ClassTable constructor may do some semantic analysis */
 	classTable = new ClassTable(classes);
 	
+    if (classTable.errors()) {
+        System.err.println("Compilation halted due to static semantic errors.");
+        System.exit(1);
+    }
 	/* some semantic analysis code may go here */
-    /* TODO: May need a variable to keep track of the current class */
 
     /* Traverse the AST top-down and when the leaves are reached, fill in the type information
         as we're winding back up. This does Scoping/Naming 
     */
+    /* Traverse basic classes first */
+    Classes basicClasses = classTable.getBasicClassList();
+    methodEnvironment = new HashMap< String, HashMap< String, ArrayList<AbstractSymbol>>>(); 
+    traverseAST(basicClasses);
     traverseAST(classes);
     /* Perform type checking with another traversal */
+    if (Flags.semant_debug) {
+        System.out.println(methodEnvironment);
+    }
     traverseASTWithTypecheck(classes);
-
-	if (classTable.errors()) {
-	    System.err.println("Compilation halted due to static semantic errors.");
-	    System.exit(1);
-	}
     }
 
     /** Traverses AST and does 1. Scoping 2. Type Checking **/
     private void traverseAST(Classes classes) {
-	methodEnvironment = new HashMap< String, HashMap< String, ArrayList<AbstractSymbol>>>(); 
-        /* Loop through each class */
+	/* Loop through each class */
 	for (Enumeration e = classes.getElements(); e.hasMoreElements(); ) {
         class_c currentClass = ((class_c)e.nextElement());
 	    if (Flags.semant_debug) {
-               System.out.println("Class " + currentClass.getName().toString());
+               System.out.println("First Pass Class " + currentClass.getName().toString());
         }
 	    /* Inside each class, start new scope, traverse down the class AST */
-	    objectSymTabMap.put(currentClass.getName().toString(), new SymbolTable());
-        SymbolTable objectSymTab = objectSymTabMap.get(currentClass.getName().toString());
-        methodSymTabMap.put(currentClass.getName().toString(), new SymbolTable());
-        SymbolTable methodSymTab = methodSymTabMap.get(currentClass.getName().toString());
+	    objectSymTabMap.put(currentClass.getName().toString(), new MySymbolTable());
+        MySymbolTable objectSymTab = objectSymTabMap.get(currentClass.getName().toString());
         objectSymTab.enterScope();
-	    methodSymTab.enterScope();
 	    methodEnvironment.put(currentClass.getName().toString(), new HashMap<String,ArrayList<AbstractSymbol>>());
+        HashMap<String, ArrayList<AbstractSymbol>> methodSymTab = methodEnvironment.get(currentClass.getName().toString());
 	    Features features = currentClass.getFeatures();
 	    for (Enumeration fe = features.getElements(); fe.hasMoreElements();) {
             Feature f = ((Feature)fe.nextElement());
@@ -319,25 +321,23 @@ class programc extends Program {
 		    
   	 	    //add attribute to symbol table, overwrite if already there
 		    objectSymTab.addId(((attr)f).getName(), ((attr)f).getType());
-		    traverseExpression(currentClass, ((attr)f).getExpression(), objectSymTab, methodSymTab);
+		    traverseExpression(currentClass, ((attr)f).getExpression(), objectSymTab, null);
         } else {
 		    if (Flags.semant_debug) {
 		    	System.out.println("Traversing Method : " + ((method)f).getName().toString());
 		    }
 		    // Add method to method Symbol Table,if already present, scope error
-		    if (methodSymTab.lookup(((method)f).getName()) != null) {
+		    if (methodSymTab.containsKey(((method)f).getName().toString())) {
 			classTable.semantError(currentClass.getFilename(), f).println("Method " + ((method)f).getName().toString() + " is multiply defined");
 		    }
-		    // Recover from multiply defined method. Just overwrite it
-		    methodSymTab.addId(((method)f).getName(), ((method)f).getReturnType());
-		    traverseMethod(currentClass, ((method)f), objectSymTab, methodSymTab);
+		    traverseMethod(currentClass, ((method)f), objectSymTab);
 		}	
 	    }
         }
     }
 
     /** Traverse method. Check formal parameters, return type and expressions **/
-    private void traverseMethod(class_c currentClass, method m, SymbolTable objectSymTab, SymbolTable methodSymTab) {
+    private void traverseMethod(class_c currentClass, method m, MySymbolTable objectSymTab) {
 	String className = currentClass.getName().toString();
     // Start a new scope
 	objectSymTab.enterScope();
@@ -360,13 +360,13 @@ class programc extends Program {
 	}
     methodEnvironment.get(className).get(methodname).add(m.getReturnType());
 	// Traverse expression
-    traverseExpression(currentClass, m.getExpression(), objectSymTab, methodSymTab);
+    traverseExpression(currentClass, m.getExpression(), objectSymTab, null);
 
 	objectSymTab.exitScope();
     }
 
     /** Depending on what kind of expression, traverse down and fill in types and do scoping **/
-    private void traverseExpression(class_c currentClass, Expression expression, SymbolTable objectSymTab, SymbolTable methodSymTab) {
+    private void traverseExpression(class_c currentClass, Expression expression, MySymbolTable objectSymTab, MySymbolTable methodSymTab) {
         if (expression instanceof object) {
             if ( ((object)expression).getName() == TreeConstants.self ) {
                 expression.set_type(TreeConstants.SELF_TYPE);
@@ -427,7 +427,7 @@ class programc extends Program {
             traverseExpression(currentClass, ((loop)expression).getPredicate(), objectSymTab, methodSymTab);
             traverseExpression(currentClass, ((loop)expression).getBody(), objectSymTab, methodSymTab);
         } else if (expression instanceof let) {
-            // Start a new scope, and add ID to symboltable
+            // Start a new scope, and add ID to Mysymboltable
             objectSymTab.enterScope();
             let letExpression = (let)expression;
             objectSymTab.addId(letExpression.getIdentifier(), letExpression.getType());
@@ -474,8 +474,8 @@ class programc extends Program {
             if (Flags.semant_debug) {
                System.out.println("Type checking Class " + className);
            }
-           SymbolTable objectSymTab = objectSymTabMap.get(className);
-           SymbolTable methodSymTab = methodSymTabMap.get(className);
+           MySymbolTable objectSymTab = objectSymTabMap.get(className);
+           MySymbolTable methodSymTab = methodSymTabMap.get(className);
            Features features = currentClass.getFeatures();
            for (Enumeration fe = features.getElements(); fe.hasMoreElements();) { 
                 Feature f = ((Feature)fe.nextElement());
@@ -490,34 +490,67 @@ class programc extends Program {
 
     // Traverse the class graph and inherit methods/attributes from parent to child
     private void setupInheritedClass(String currentClassName) {
+
+        if (Flags.semant_debug) {
+            System.out.println("Setting up inheritance for class:" + currentClassName);
+        }
         HashMap<String, class_c> classMap = classTable.nameToClass;
         class_c currentClass = classMap.get(currentClassName);
         String parent = classTable.getParent(currentClassName);
-        SymbolTable parentsSymTab = objectSymTabMap.get(parent);
-        SymbolTable parentsMethodSymTab = methodSymTabMap.get(parent);
-        SymbolTable myObjSymTab = objectSymTabMap.get(currentClass);
-        SymbolTable myMethSymTab = methodSymTabMap.get(currentClass);
+        MySymbolTable parentsSymTab = objectSymTabMap.get(parent);
+        HashMap<String, ArrayList<AbstractSymbol>> parentsMethodSymTab = methodEnvironment.get(parent);
+        MySymbolTable myObjSymTab = objectSymTabMap.get(currentClassName);
+        HashMap<String, ArrayList<AbstractSymbol>> myMethSymTab = methodEnvironment.get(currentClassName);
         // Check for properly overrideen attributes/methods
-        Features features = currentClass.getFeatures();
-        for (Enumeration fe = features.getElements(); fe.hasMoreElements();) {
-            Feature f = ((Feature)fe.nextElement());
-            // An attribute cannot be overridden
-            if (f instanceof attr) {
-                if (parentsSymTab.lookup(((attr)f).getName()) != null) {
-                    classTable.semantError(currentClass.getFilename(), f).println("Attribute " + ((attr)f).getName().toString() + " is an attribute of an inherited class");
+
+        if (Flags.semant_debug) {
+            System.out.println("Parent : " + parent);
+            System.out.println("Parent's object Symbol Table : " + parentsSymTab);
+            System.out.println("Parent's method Symbol Table : " + parentsMethodSymTab);
+        }
+
+        if (parentsSymTab != null) {
+            Features features = currentClass.getFeatures();
+            for (Enumeration fe = features.getElements(); fe.hasMoreElements();) {
+                Feature f = ((Feature)fe.nextElement());
+                // An attribute cannot be overridden
+                if (f instanceof attr) {
+                    if (parentsSymTab.lookup(((attr)f).getName()) != null) {
+                        classTable.semantError(currentClass.getFilename(), f).println("Attribute " + ((attr)f).getName().toString() + " is an attribute of an inherited class");
+                    }
+                } else {
+                    // A method can, provided the signature is the same
+                    method m = (method)f;
+                    String methodname = m.getName().toString();
+                    if (parentsMethodSymTab != null && parentsMethodSymTab.containsKey(methodname)) {
+                        ArrayList<AbstractSymbol> subclassSignature = myMethSymTab.get(methodname);
+                        ArrayList<AbstractSymbol> inheritclassSignature = parentsMethodSymTab.get(methodname);
+                        // Check if the two lists are exactly same
+                        if (!subclassSignature.equals(inheritclassSignature)) {
+                            classTable.semantError(currentClass.getFilename(), m).println("Overriding Method " + methodname + " should have same signature as in parent class " + parent);
+                        }
+                    }
                 }
-            } else {
-                // A method can, provided the signature is the same
+            }
+            /* For each id added to the outer scope hastable of the parent's Mysymboltable,
+               inherit the id if not already present, if present skip it, as this has been dealt with just above  */
+            parentsSymTab.copy(myObjSymTab);
+            for (String methodName : parentsMethodSymTab.keySet()) {
+                if (!myMethSymTab.containsKey(methodName)) {
+                    myMethSymTab.put(methodName, parentsMethodSymTab.get(methodName));
+                }
             }
         }
-        /* For each id added to the outer scope hastable of the parent's symboltable,
-           inherit the id if not already present, if present throw an error  */
-
         /* Recurse on the children of this class */
+        if (classTable.getChildren(currentClassName) != null) {
+            for (String child : classTable.getChildren(currentClassName)) {
+                setupInheritedClass(child);
+            }
+        }
     }
 
     /** Type check a method and all the expressions in it **/
-    private void typeCheckMethod(class_c currentClass, method m, SymbolTable objectSymTab, SymbolTable methodSymTab) {
+    private void typeCheckMethod(class_c currentClass, method m, MySymbolTable objectSymTab, MySymbolTable methodSymTab) {
         String className = currentClass.getName().toString();
         // Start a new scope
         objectSymTab.enterScope();
@@ -539,6 +572,12 @@ class programc extends Program {
         }
         // Check return type
         typeCheckExpression(currentClass, m.getExpression(), objectSymTab, methodSymTab);
+        if (m.getExpression().get_type() == null) {
+            if (Flags.semant_debug) {
+                System.out.println("ERROR: Expression has no type set!");
+                m.getExpression().dump_with_types(System.out, 1);
+            }
+        }
         AbstractSymbol observedReturnType = m.getExpression().get_type();
         ArrayList<AbstractSymbol> declaredFormalTypes = methodEnvironment.get(className).get(methodname);
         AbstractSymbol declaredReturnType = declaredFormalTypes.get(declaredFormalTypes.size() - 1);
@@ -557,7 +596,7 @@ class programc extends Program {
         objectSymTab.exitScope();
     }
 
-    private void typeCheckExpression(class_c currentClass, Expression expression, SymbolTable objectSymTab, SymbolTable methodSymTab) {
+    private void typeCheckExpression(class_c currentClass, Expression expression, MySymbolTable objectSymTab, MySymbolTable methodSymTab) {
         if (expression instanceof object) {
             // Wonder if this can ever happen
             /*
@@ -575,7 +614,7 @@ class programc extends Program {
 
             if (Flags.semant_debug) {
                 System.out.println("Type checking assignment : ");
-                e.dump_with_types(System.out, 1);
+                //e.dump_with_types(System.out, 1);
             }
 
             if (!classTable.checkConformance(inferredType, declaredType)) {

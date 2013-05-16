@@ -14,6 +14,7 @@ class ClassTable {
 
     //this hashmap is for finding least common ancestors
     private HashMap<String, Integer> getDepth;
+    private Classes basicClassList;
 
 
     /** Creates data structures representing basic Cool classes (Object,
@@ -186,6 +187,12 @@ class ClassTable {
     adjacencyList.put(TreeConstants.Bool.getString(), new ArrayList<String>() );
     adjacencyList.put(TreeConstants.Str.getString(), new ArrayList<String>() );
     // Do the same for other basic classes
+    basicClassList = new Classes(0);
+    basicClassList.appendElement(Object_class);
+    basicClassList.appendElement(IO_class);
+    basicClassList.appendElement(Int_class);
+    basicClassList.appendElement(Bool_class);
+    basicClassList.appendElement(Str_class);
     }
 	
 
@@ -428,5 +435,13 @@ class ClassTable {
     	}
     	// This shouldn't happen
     	return null;
+    }
+
+    public ArrayList<String> getChildren(String parent) {
+    	return adjacencyList.get(parent);
+    }
+
+    public Classes getBasicClassList() {
+    	return basicClassList;
     }
 }
