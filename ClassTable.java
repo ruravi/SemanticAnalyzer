@@ -11,6 +11,7 @@ class ClassTable {
     private PrintStream errorStream;
     private HashMap< String, ArrayList<String> > adjacencyList;
 	public HashMap<String, class_c> nameToClass;
+	private Boolean dummy;
 
     //this hashmap is for finding least common ancestors
     private HashMap<String, Integer> getDepth;
