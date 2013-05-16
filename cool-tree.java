@@ -539,6 +539,9 @@ class programc extends Program {
         AbstractSymbol observedReturnType = m.getReturnType();
         ArrayList<AbstractSymbol> declaredFormalTypes = methodEnvironment.get(className).get(methodname);
         AbstractSymbol declaredReturnType = declaredFormalTypes.get(declaredFormalTypes.size() - 1);
+        if (Flags.semant_debug) {
+            System.out.println("Inferred Return type: " + observedReturnType + ". Declared :" + declaredReturnType);
+        }
         if (declaredReturnType == TreeConstants.SELF_TYPE) {
             declaredReturnType = currentClass.getName();
         }
