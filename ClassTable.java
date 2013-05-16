@@ -429,4 +429,8 @@ class ClassTable {
     	// This shouldn't happen
     	return null;
     }
+
+     public class_c getClass (String className){
+    	return nameToClass.get(className);
+    }
 }

@@ -10,6 +10,7 @@ import java.util.Enumeration;
 import java.io.PrintStream;
 import java.util.Vector;
 import java.util.*;
+import java.lang.*;
 
 /** Defines simple phylum Program */
 abstract class Program extends TreeNode {
@@ -461,6 +462,96 @@ class programc extends Program {
             traverseExpression( currentClass, e, objectSymTab, methodSymTab);
             expression.set_type(e.get_type());
         }
+
+	//dispatch
+	  else if (expression instanceof dispatch) {
+            dispatch e = (dispatch)expression;
+            for (Enumeration en = e.getActual().getElements(); en.hasMoreElements();) {
+                traverseExpression(currentClass, ((Expression)en.nextElement()), objectSymTab, methodSymTab);
+            }
+
+        } 
+	// if then else statment
+	else if (expression instanceof cond) {
+    	    Expression then_exp = ((cond)expression).getThen();
+            Expression else_exp = ((cond)expression).getElse();
+      
+            //traverseExpression(currentClass, ((cond)expression).getPredicate(), objectSymTab, methodSymTab);
+            traverseExpression(currentClass, then_exp, objectSymTab, methodSymTab);
+            traverseExpression(currentClass, else_exp, objectSymTab, methodSymTab);
+
+    	    //set final type of cond expression to the lowest common ancestor of then and else expressions
+    	    ArrayList<AbstractSymbol> inputTypes = new ArrayList<AbstractSymbol>();
+    	    inputTypes.add(then_exp.get_type());
+            inputTypes.add(else_exp.get_type());
+     	    AbstractSymbol finalType = LCA(inputTypes);
+    	    expression.set_type(finalType);
+
+        } else if (expression instanceof typcase) {
+	       typcase caseExpression = (typcase)expression;
+           traverseExpression(currentClass, caseExpression.getExpression(), objectSymTab, methodSymTab);
+           
+        }
+    }
+
+ // find the lowest common ancestor in inheritance tree 
+    private AbstractSymbol LCA (ArrayList<AbstractSymbol> inputTypes) {
+
+        int smallestDepth = Integer.MAX_VALUE;
+        HashMap<AbstractSymbol, Integer> nodeToDepths = new HashMap<AbstractSymbol, Integer>();
+	    for (AbstractSymbol type : inputTypes) {
+            int depth = classTable.getDepthFromNode(type.toString());
+            if (depth < smallestDepth) smallestDepth = depth;
+            nodeToDepths.put(type, depth);
+        }
+
+        ArrayList<String> ancestors = new ArrayList<String>();
+        //get parent to same depth
+        for (AbstractSymbol node : nodeToDepths.keySet()) {
+            int depth = nodeToDepths.get(node);
+            int difference = depth - smallestDepth;
+            String nodeName = node.toString();
+            for (int i = 0; i < difference; i++){
+                nodeName = classTable.getParent(nodeName);
+            }
+            ancestors.add(nodeName);
+        }
+
+        boolean LCA_notfound = true;
+        //getParent until all nodes are the same
+        while (LCA_notfound){
+            boolean LCAfound = true;
+            //compare all nodes to first node, doesn't matter because we check 
+            //that all nodes must be the same. 
+            String firstNode = ancestors.get(0);
+            for (String nodeName : ancestors){
+                if (!firstNode.equals(nodeName)) {
+                    LCAfound = false;
+                    break;
+                }
+            }
+            if (LCAfound == true){
+
+                LCA_notfound = false;
+
+            } else{
+                //getparent to every node
+
+                //create temporary arraylist and copy over elements
+                ArrayList<String> temp = new ArrayList<String>();
+                for (String ancestor: ancestors){
+                    temp.add(ancestor);
+                }
+                ancestors.clear();
+                for (String ancestor: temp){
+                    String parent = classTable.getParent(ancestor);
+                    ancestors.add(parent);
+                }
+            }
+            
+        }
+        //return type of LCA
+        return classTable.getClass(ancestors.get(0)).getName();
     }
 
     /** Second + Third pass through AST to perform inheritance   **/
@@ -864,6 +955,10 @@ class branch extends Case {
 	expr.dump_with_types(out, n + 2);
     }
 
+     public AbstractSymbol getName() {return name;}
+    public AbstractSymbol getType() {return type_decl;}
+    public Expression getExpression() {return expr;}
+
 }
 
 
@@ -1006,7 +1101,10 @@ class dispatch extends Expression {
         out.println(Utilities.pad(n + 2) + ")");
 	dump_type(out, n);
     }
-
+ 
+    public Expression getExpression()   { return expr;  }
+    public AbstractSymbol getName() { return name;  }
+    public Expressions getActual()  { return actual;    }
 }
 
 
@@ -1133,6 +1231,8 @@ class typcase extends Expression {
 	dump_type(out, n);
     }
 
+    public Expression getExpression() {return expr; }
+    public Cases getCases() {return cases; }
 }
 
 
