@@ -292,10 +292,10 @@ class programc extends Program {
 	methodEnvironment = new HashMap< String, HashMap< String, ArrayList<AbstractSymbol>>>(); 
         /* Loop through each class */
 	for (Enumeration e = classes.getElements(); e.hasMoreElements(); ) {
-            class_c currentClass = ((class_c)e.nextElement());
+        class_c currentClass = ((class_c)e.nextElement());
 	    if (Flags.semant_debug) {
                System.out.println("Class " + currentClass.getName().toString());
-            }
+        }
 	    /* Inside each class, start new scope, traverse down the class AST */
 	    objectSymTabMap.put(currentClass.getName().toString(), new SymbolTable());
         SymbolTable objectSymTab = objectSymTabMap.get(currentClass.getName().toString());
@@ -344,6 +344,11 @@ class programc extends Program {
 	// Traverse formal arguments, adding them to scope
 	Formals formals = m.getFormals();
 	String methodname = m.getName().toString();
+
+    if (methodEnvironment.get(className).get(methodname) == null) {
+            methodEnvironment.get(className).put(methodname, new ArrayList<AbstractSymbol>());
+    }
+
 	for (Enumeration e = formals.getElements(); e.hasMoreElements();) {
         formalc formal = ((formalc)e.nextElement());
 		if (objectSymTab.lookup(formal.getName()) != null) {
@@ -351,11 +356,9 @@ class programc extends Program {
 		}
 		// Recover from multiply defined formal parameter. Just overwrite it
 		objectSymTab.addId(formal.getName(), formal.getType());
-		if (methodEnvironment.get(className).get(methodname) == null) {
-			methodEnvironment.get(className).put(methodname, new ArrayList<AbstractSymbol>());
-		}
 		methodEnvironment.get(className).get(methodname).add(formal.getType());
 	}
+    methodEnvironment.get(className).get(methodname).add(m.getReturnType());
 	// Traverse expression
     traverseExpression(currentClass, m.getExpression(), objectSymTab, methodSymTab);
 
@@ -458,33 +461,48 @@ class programc extends Program {
         }
     }
 
-    /** Second pass through AST to perform inheritence   **/
+    /** Second + Third pass through AST to perform inheritance   **/
     private void traverseASTWithTypecheck(Classes classes) {
         // Start type checking from root
-        HashMap< String, class_c> classMap = new HashMap< String, class_c>();
+        setupInheritedClass(TreeConstants.Object_.toString());
+        // Traverse AST and do type checking now
         for (Enumeration e = classes.getElements(); e.hasMoreElements(); ) {
             class_c currentClass = ((class_c)e.nextElement());
-            classMap.put(currentClass.getName().toString(), currentClass);
+            String className = currentClass.getName().toString();
+            if (Flags.semant_debug) {
+               System.out.println("Type checking Class " + className);
+           }
+           SymbolTable objectSymTab = objectSymTabMap.get(className);
+           SymbolTable methodSymTab = methodSymTabMap.get(className);
+           Features features = currentClass.getFeatures();
+           for (Enumeration fe = features.getElements(); fe.hasMoreElements();) { 
+                Feature f = ((Feature)fe.nextElement());
+                if ( f instanceof attr ) {
+                    //typeCheckAttribute(currentClass, f, objectSymTab, methodSymTab);
+                } else {
+                    typeCheckMethod(currentClass, (method)f, objectSymTab, methodSymTab);
+                }
+            }
         }
-        setupInheritedClass(TreeConstants.Object_, classMap);
     }
 
     // Traverse the class graph and inherit methods/attributes from parent to child
-    private void setupInheritedClass(String currentClassName, HashMap< String, class_c> classMap) {
-        String parent = classTable.getParent(currentClass);
+    private void setupInheritedClass(String currentClassName) {
+        HashMap<String, class_c> classMap = classTable.nameToClass;
+        class_c currentClass = classMap.get(currentClassName);
+        String parent = classTable.getParent(currentClassName);
         SymbolTable parentsSymTab = objectSymTabMap.get(parent);
         SymbolTable parentsMethodSymTab = methodSymTabMap.get(parent);
         SymbolTable myObjSymTab = objectSymTabMap.get(currentClass);
         SymbolTable myMethSymTab = methodSymTabMap.get(currentClass);
         // Check for properly overrideen attributes/methods
-        class_c currentClass = classMap.get(currentClassName);
         Features features = currentClass.getFeatures();
         for (Enumeration fe = features.getElements(); fe.hasMoreElements();) {
             Feature f = ((Feature)fe.nextElement());
             // An attribute cannot be overridden
             if (f instanceof attr) {
                 if (parentsSymTab.lookup(((attr)f).getName()) != null) {
-                    semantError(currentClass, f).println("Attribute " + ((attr)f).getName() + " is an attribute of an inherited class");
+                    classTable.semantError(currentClass.getFilename(), f).println("Attribute " + ((attr)f).getName().toString() + " is an attribute of an inherited class");
                 }
             } else {
                 // A method can, provided the signature is the same
@@ -492,6 +510,41 @@ class programc extends Program {
         }
         /* For each id added to the outer scope hastable of the parent's symboltable,
            inherit the id if not already present, if present throw an error  */
+
+        /* Recurse on the children of this class */
+    }
+
+    /** Type check a method and all the expressions in it **/
+    private void typeCheckMethod(class_c currentClass, method m, SymbolTable objectSymTab, SymbolTable methodSymTab) {
+        String className = currentClass.getName().toString();
+        // Start a new scope
+        objectSymTab.enterScope();
+        // Traverse formal arguments, adding them to scope
+        Formals formals = m.getFormals();
+        String methodname = m.getName().toString();
+
+        if (Flags.semant_debug) {
+            System.out.println("Type checking method: " + methodname);
+        }
+
+        for (Enumeration e = formals.getElements(); e.hasMoreElements();) {
+            formalc formal = ((formalc)e.nextElement());
+            // Check if the type of this formal is valid
+            if ( !classTable.isValidType(formal.getType())) {
+                classTable.semantError(currentClass.getFilename(), formal).println("Class " + formal.getType() + " of formal parameter " + formal.getName() + " is undefined");
+            }
+            objectSymTab.addId(formal.getName(), formal.getType());
+        }
+        // Check return type
+        AbstractSymbol observedReturnType = m.getReturnType();
+        ArrayList<AbstractSymbol> declaredFormalTypes = methodEnvironment.get(className).get(methodname);
+        AbstractSymbol declaredReturnType = declaredFormalTypes.get(declaredFormalTypes.size() - 1);
+        if (declaredReturnType == TreeConstants.SELF_TYPE) {
+            declaredReturnType = currentClass.getName();
+        }
+        if (!classTable.checkConformance(observedReturnType, declaredReturnType)) {
+            classTable.semantError(currentClass.getFilename(), m).println("Inferred return type " + observedReturnType.toString() + " of method " + methodname + " does not conform to declared return type " + declaredReturnType.toString());
+        }
     }
 }
 
