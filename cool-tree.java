@@ -372,6 +372,7 @@ class programc extends Program {
                 expression.set_type(TreeConstants.SELF_TYPE);
             } else if (objectSymTab.lookup(((object)expression).getName()) == null) {
                 classTable.semantError(currentClass.getFilename(),expression).println("Undeclared identifier " + ((object)expression).getName());
+                expression.set_type(TreeConstants.Object_);
             } else {
                 // Set the type of this object from the symbol table, if it exists
                 expression.set_type((AbstractSymbol)objectSymTab.lookup(((object)expression).getName()));
@@ -536,7 +537,7 @@ class programc extends Program {
             objectSymTab.addId(formal.getName(), formal.getType());
         }
         // Check return type
-        AbstractSymbol observedReturnType = m.getReturnType();
+        AbstractSymbol observedReturnType = m.getExpression().get_type();
         ArrayList<AbstractSymbol> declaredFormalTypes = methodEnvironment.get(className).get(methodname);
         AbstractSymbol declaredReturnType = declaredFormalTypes.get(declaredFormalTypes.size() - 1);
         if (Flags.semant_debug) {
@@ -544,6 +545,9 @@ class programc extends Program {
         }
         if (declaredReturnType == TreeConstants.SELF_TYPE) {
             declaredReturnType = currentClass.getName();
+        }
+        if (observedReturnType == TreeConstants.SELF_TYPE) {
+            observedReturnType = currentClass.getName();
         }
         if (!classTable.checkConformance(observedReturnType, declaredReturnType)) {
             classTable.semantError(currentClass.getFilename(), m).println("Inferred return type " + observedReturnType.toString() + " of method " + methodname + " does not conform to declared return type " + declaredReturnType.toString());
