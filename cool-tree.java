@@ -538,6 +538,7 @@ class programc extends Program {
             objectSymTab.addId(formal.getName(), formal.getType());
         }
         // Check return type
+        typeCheckExpression(currentClass, m.getExpression(), objectSymTab, methodSymTab);
         AbstractSymbol observedReturnType = m.getExpression().get_type();
         ArrayList<AbstractSymbol> declaredFormalTypes = methodEnvironment.get(className).get(methodname);
         AbstractSymbol declaredReturnType = declaredFormalTypes.get(declaredFormalTypes.size() - 1);
@@ -553,7 +554,7 @@ class programc extends Program {
         if (!classTable.checkConformance(observedReturnType, declaredReturnType)) {
             classTable.semantError(currentClass.getFilename(), m).println("Inferred return type " + observedReturnType.toString() + " of method " + methodname + " does not conform to declared return type " + declaredReturnType.toString());
         }
-        typeCheckExpression(currentClass, m.getExpression(), objectSymTab, methodSymTab);
+        objectSymTab.exitScope();
     }
 
     private void typeCheckExpression(class_c currentClass, Expression expression, SymbolTable objectSymTab, SymbolTable methodSymTab) {
@@ -579,6 +580,18 @@ class programc extends Program {
             if (!classTable.checkConformance(inferredType, declaredType)) {
                 classTable.semantError(currentClass.getFilename(), e).println("Type " + inferredType + " of assigned expression does not conform to declared type " + declaredType + " of identifier " + e.getName());
             }
+        } else if (expression instanceof cond) {
+            cond e = (cond)expression;
+            // Type check the expression for the predicate
+            typeCheckExpression(currentClass, e.getPredicate(), objectSymTab, methodSymTab);
+            typeCheckExpression(currentClass, e.getThen(), objectSymTab, methodSymTab);
+            typeCheckExpression(currentClass, e.getElse(), objectSymTab, methodSymTab);
+            AbstractSymbol typeOfPredicate = e.getPredicate().get_type();
+            if (typeOfPredicate != TreeConstants.Bool) {
+                classTable.semantError(currentClass.getFilename(), e).println("Predicate of \"if\" does not have type Bool");
+            }
+        } else if (expression instanceof let) {
+            typeCheckExpression(currentClass, );
         }
     }
 }
@@ -1010,6 +1023,9 @@ class cond extends Expression {
 	dump_type(out, n);
     }
 
+    public Expression getPredicate()    { return pred;  }
+    public Expression getThen() { return then_exp;  }
+    public Expression getElse() { return else_exp;  }
 }
 
 
