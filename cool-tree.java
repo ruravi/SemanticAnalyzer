@@ -452,6 +452,7 @@ class programc extends Program {
             for (Enumeration enumer = e.getActual().getElements(); enumer.hasMoreElements();) {
                 traverseExpression(currentClass, ((Expression)enumer.nextElement()), objectSymTab, methodSymTab);
             }
+            // TODO: Fill in the type of dispatch here ?
         } else if (expression instanceof assign) {
             if (objectSymTab.lookup(((assign)expression).getName()) == null) {
                 classTable.semantError(currentClass.getFilename(),expression).println("Undeclared identifier " + ((assign)expression).getName());
@@ -551,6 +552,33 @@ class programc extends Program {
         }
         if (!classTable.checkConformance(observedReturnType, declaredReturnType)) {
             classTable.semantError(currentClass.getFilename(), m).println("Inferred return type " + observedReturnType.toString() + " of method " + methodname + " does not conform to declared return type " + declaredReturnType.toString());
+        }
+        typeCheckExpression(currentClass, m.getExpression(), objectSymTab, methodSymTab);
+    }
+
+    private void typeCheckExpression(class_c currentClass, Expression expression, SymbolTable objectSymTab, SymbolTable methodSymTab) {
+        if (expression instanceof object) {
+            // Wonder if this can ever happen
+            /*
+            AbstractSymbol name = ((object)expression).getName();
+            if (objectSymTab.lookup(name) != ((object)expression).get_type()) {
+                classTable.semantError(currentClass.getFilename(), expression).println("ID " + name + " has the wrong type");
+            }
+            */
+        } else if (expression instanceof assign) {
+            assign e = (assign)expression;
+            typeCheckExpression(currentClass, e.getExpression(), objectSymTab, methodSymTab);
+            AbstractSymbol inferredType = e.getExpression().get_type();
+            AbstractSymbol declaredType = (AbstractSymbol) objectSymTab.lookup(e.getName());
+
+            if (Flags.semant_debug) {
+                System.out.println("Type checking assignment : ");
+                e.dump_with_types(System.out, 1);
+            }
+
+            if (!classTable.checkConformance(inferredType, declaredType)) {
+                classTable.semantError(currentClass.getFilename(), e).println("Type " + inferredType + " of assigned expression does not conform to declared type " + declaredType + " of identifier " + e.getName());
+            }
         }
     }
 }
