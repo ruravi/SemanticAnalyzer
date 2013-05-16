@@ -10,7 +10,7 @@ class ClassTable {
     private int semantErrors;
     private PrintStream errorStream;
     private HashMap< String, ArrayList<String> > adjacencyList;
-	private HashMap<String, class_c> nameToClass;
+	public HashMap<String, class_c> nameToClass;
 
     /** Creates data structures representing basic Cool classes (Object,
      * IO, Int, Bool, String).  Please note: as is this method does not
@@ -315,7 +315,7 @@ class ClassTable {
 			visited.put(value, false);
 		}
 	}
-	depthFirstSearch(visited, "Object");
+	depthFirstSearch(visited, TreeConstants.Object_.toString());
 	// It is legal to inherit from the IO class. So mark classes down that tree as well
 	depthFirstSearch(visited, TreeConstants.IO.getString());
 	// Check for unreachable components - unreachable classes are cycles
@@ -368,18 +368,33 @@ class ClassTable {
     		return true;
     	}
     	// Check for a path from C2 to reach C1
-    	return isReachable(C1, C2);
+    	return isReachable(C1.getString(), C2.getString());
     }
 
     /** Checks if C1 is reachable from C2 **/
     private Boolean isReachable(String C1, String C2) {
     	for (String child : adjacencyList.get(C2)) {
-    		if (child.equals(C1) {
+    		if (child.equals(C1)) {
     			return true;
     		} else if ( isReachable(C1, child ) ) {
     			return true;
     		}
     	}
     	return false;
+    }
+
+    /** Returns the name of the parent class of a given class **/
+    public String getParent(String child) {
+    	if ( child.equals(TreeConstants.Object_.getString())) {
+    		return TreeConstants.No_class.toString();
+    	}
+    	for (String parent : adjacencyList.keySet()) {
+    		ArrayList<String> listOfChildren = adjacencyList.get(parent);
+    		if (listOfChildren.indexOf(child) != -1) {
+    			return parent;
+    		}
+    	}
+    	// This shouldn't happen
+    	return null;
     }
 }
