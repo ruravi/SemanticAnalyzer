@@ -569,6 +569,7 @@ class programc extends Program {
         } else if (expression instanceof assign) {
             assign e = (assign)expression;
             typeCheckExpression(currentClass, e.getExpression(), objectSymTab, methodSymTab);
+            e.set_type(e.getExpression().get_type());
             AbstractSymbol inferredType = e.getExpression().get_type();
             AbstractSymbol declaredType = (AbstractSymbol) objectSymTab.lookup(e.getName());
 
@@ -586,12 +587,38 @@ class programc extends Program {
             typeCheckExpression(currentClass, e.getPredicate(), objectSymTab, methodSymTab);
             typeCheckExpression(currentClass, e.getThen(), objectSymTab, methodSymTab);
             typeCheckExpression(currentClass, e.getElse(), objectSymTab, methodSymTab);
+            // Set the type of the cond here
             AbstractSymbol typeOfPredicate = e.getPredicate().get_type();
             if (typeOfPredicate != TreeConstants.Bool) {
                 classTable.semantError(currentClass.getFilename(), e).println("Predicate of \"if\" does not have type Bool");
             }
         } else if (expression instanceof let) {
-            typeCheckExpression(currentClass, );
+            let e = (let)expression;
+            typeCheckExpression(currentClass, e.getInit(), objectSymTab, methodSymTab);
+            AbstractSymbol T0Prime = e.getType();
+            if (T0Prime == TreeConstants.SELF_TYPE) {
+                T0Prime = currentClass.getName();
+            }
+            if (!(e.getInit() instanceof no_expr)) {
+                AbstractSymbol T1 = e.getInit().get_type();
+                if (!classTable.checkConformance(T1, T0Prime)) {
+                    classTable.semantError(currentClass.getFilename(), e).println("Inferred type " + T1 + " of initialization of " + e.getIdentifier() + " does not conform to identifier's declared type " + T0Prime);
+                }
+            }
+            objectSymTab.enterScope();
+            objectSymTab.addId(e.getIdentifier(), e.getType());
+            typeCheckExpression(currentClass, e.getBody(), objectSymTab, methodSymTab);
+            e.set_type(e.getBody().get_type());
+            objectSymTab.exitScope();
+        } else if (expression instanceof block) {
+            Expressions body = ((block)expression).getBody();
+            AbstractSymbol lastType = null;
+            for (Enumeration e = body.getElements(); e.hasMoreElements();) {
+                Expression nextExpression = (Expression)e.nextElement();
+                typeCheckExpression(currentClass, nextExpression, objectSymTab, methodSymTab);
+                lastType = nextExpression.get_type();
+            }
+            expression.set_type(lastType);
         }
     }
 }
