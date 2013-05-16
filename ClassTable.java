@@ -12,6 +12,10 @@ class ClassTable {
     private HashMap< String, ArrayList<String> > adjacencyList;
 	private HashMap<String, class_c> nameToClass;
 
+    //this hashmap is for finding least common ancestors
+    private HashMap<String, Integer> getDepth;
+
+
     /** Creates data structures representing basic Cool classes (Object,
      * IO, Int, Bool, String).  Please note: as is this method does not
      * do anything useful; you will need to edit it to make if do what
@@ -196,10 +200,35 @@ class ClassTable {
 	}
 	adjacencyList = new HashMap< String, ArrayList<String>>();
 	nameToClass = new HashMap<String, class_c>();
+
+        getDepth = new HashMap<String, Integer>();
+
 	installBasicClasses();
 	buildGraph(cls);
+	assignDepths("Object", 0); //assign depths starting at root node of tree (depth 0)
     }
 
+    //return depth given name of node
+
+    public int getDepthFromNode (String node){
+        int depth = getDepth.get(node);
+        return depth;
+    }
+    //assign depths to every node in inheritance tree
+    private void assignDepths(String node, int depth){
+        getDepth.put(node, depth);
+	ArrayList<String> children = adjacencyList.get(node);
+
+        if (children.isEmpty()) return;
+ 	//if there are children, assign depths to each, and recurse
+        if (!children.isEmpty()){
+	    depth = depth -1;
+	    for (String child : children) {
+	        assignDepths(child, depth);
+            }
+        }
+        
+    }
     /** Prints line number and file name of the given class.
      *
      * Also increments semantic error count.
@@ -374,7 +403,7 @@ class ClassTable {
     /** Checks if C1 is reachable from C2 **/
     private Boolean isReachable(String C1, String C2) {
     	for (String child : adjacencyList.get(C2)) {
-    		if (child.equals(C1) {
+    		if (child.equals(C1)) {
     			return true;
     		} else if ( isReachable(C1, child ) ) {
     			return true;
@@ -382,4 +411,5 @@ class ClassTable {
     	}
     	return false;
     }
+
 }
