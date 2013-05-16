@@ -272,6 +272,7 @@ class programc extends Program {
 	/* ClassTable constructor may do some semantic analysis */
 	classTable = new ClassTable(classes);
 	
+    // Abort if there are errors in the inheritanc graph
     if (classTable.errors()) {
         System.err.println("Compilation halted due to static semantic errors.");
         System.exit(1);
@@ -291,6 +292,11 @@ class programc extends Program {
         System.out.println(methodEnvironment);
     }
     traverseASTWithTypecheck(classes);
+
+    if (classTable.errors()) {
+        System.err.println("Compilation halted due to static semantic errors.");
+        System.exit(1);
+    }
     }
 
     /** Traverses AST and does 1. Scoping 2. Type Checking **/
@@ -352,7 +358,7 @@ class programc extends Program {
 
 	for (Enumeration e = formals.getElements(); e.hasMoreElements();) {
         formalc formal = ((formalc)e.nextElement());
-		if (objectSymTab.lookup(formal.getName()) != null) {
+		if (objectSymTab.probe(formal.getName()) != null) {
 			classTable.semantError(currentClass.getFilename(), formal).println("Formal parameter " + formal.getName().toString() + " is multiply defined");
 		}
 		// Recover from multiply defined formal parameter. Just overwrite it
@@ -466,6 +472,7 @@ class programc extends Program {
 	//dispatch
 	  else if (expression instanceof dispatch) {
             dispatch e = (dispatch)expression;
+            traverseExpression(currentClass, e.getExpression(), objectSymTab, methodSymTab);
             for (Enumeration en = e.getActual().getElements(); en.hasMoreElements();) {
                 traverseExpression(currentClass, ((Expression)en.nextElement()), objectSymTab, methodSymTab);
             }
@@ -688,6 +695,7 @@ class programc extends Program {
     }
 
     private void typeCheckExpression(class_c currentClass, Expression expression, MySymbolTable objectSymTab, MySymbolTable methodSymTab) {
+        String className = currentClass.getName().getString();
         if (expression instanceof object) {
             // Wonder if this can ever happen
             /*
@@ -749,7 +757,52 @@ class programc extends Program {
                 lastType = nextExpression.get_type();
             }
             expression.set_type(lastType);
+        } else if (expression instanceof dispatch) {
+            dispatch e = (dispatch)expression;
+            String methodname = e.getName().toString();
+            typeCheckExpression(currentClass, e.getExpression(), objectSymTab, methodSymTab);
+            AbstractSymbol T0 = e.getExpression().get_type();
+
+            if (Flags.semant_debug) {
+                System.out.println("Type checking dispatch: " + methodname + " of class " + T0);
+                e.dump_with_types(System.out,1);
+            }
+            AbstractSymbol T0Prime = T0;
+            if (T0Prime == TreeConstants.SELF_TYPE) {
+                T0Prime = currentClass.getName();
+            }
+            // Check if method actually exists in class T0Prime
+            if (!methodEnvironment.get(T0Prime.toString()).containsKey(methodname)) {
+                classTable.semantError(currentClass.getFilename(), e).println("Dispatch to undefined method " + methodname);
+            } else {
+                // Check if actual and formal conform
+                ArrayList<AbstractSymbol> inferredTypes = new ArrayList<AbstractSymbol>();
+                for (Enumeration en = e.getActual().getElements(); en.hasMoreElements();) {
+                    Expression next = (Expression)en.nextElement();
+                    typeCheckExpression(currentClass, next , objectSymTab, methodSymTab);
+                    inferredTypes.add(next.get_type());
+                }
+                ArrayList<AbstractSymbol> declaredTypes = methodEnvironment.get(T0Prime.toString()).get(methodname);
+                if (declaredTypes.size() != inferredTypes.size()+1) {
+                    classTable.semantError(currentClass.getFilename(), e).println("Method " + methodname + " called with wrong number of arguments");
+                }
+
+                for (int i = 0; i < declaredTypes.size() - 1; i++) {
+                    AbstractSymbol inferred = inferredTypes.get(i);
+                    AbstractSymbol declared = declaredTypes.get(i);
+                    if (!classTable.checkConformance(inferred, declared)) {
+                        classTable.semantError(currentClass.getFilename(), e).println("In call of method " + methodname + " type " + inferred + " of parameter number " + i + " does not conform to declared type " + declared);
+                    }
+                }
+                // Check, well actually set, return type
+                AbstractSymbol declaredReturnType = declaredTypes.get(declaredTypes.size() - 1);
+                if (declaredReturnType == TreeConstants.SELF_TYPE) {
+                    declaredReturnType = T0;
+                }
+                e.set_type(declaredReturnType);
+            }
         }
+
     }
 }
 
