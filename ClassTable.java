@@ -444,4 +444,8 @@ class ClassTable {
     public Classes getBasicClassList() {
     	return basicClassList;
     }
+
+    public class_c getClass (String className){
+    	return nameToClass.get(className);
+    }
 }
