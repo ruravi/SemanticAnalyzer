@@ -498,6 +498,22 @@ class programc extends Program {
 	       typcase caseExpression = (typcase)expression;
            traverseExpression(currentClass, caseExpression.getExpression(), objectSymTab, methodSymTab);
            
+            ArrayList<AbstractSymbol> branchTypes = new ArrayList<AbstractSymbol>();
+           Cases caselist = caseExpression.getCases();
+
+           //add all types returned from branch expressions to arraylist
+           for (Enumeration e = caseList.getElements(); e.hasMoreElements();){
+                branch c = (branch)e.nextElement();
+                //recurse on branch expression, add type to list of expressions
+                Expression branchExp = c.getExpression();
+                traverseExpression(currentClass, branchExp, objectSymTab, methodSymTab);
+                AbstractSymbol branchType = branchExp.get_type();
+                branchTypes.add(branchType);
+           }
+
+           //return the lca of all branch types
+           AbstractSymbol finalType = LCA(branchTypes);
+           expression.set_type(finalType);
         }
     }
 
