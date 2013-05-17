@@ -498,6 +498,22 @@ class programc extends Program {
 	       typcase caseExpression = (typcase)expression;
            traverseExpression(currentClass, caseExpression.getExpression(), objectSymTab, methodSymTab);
            
+            ArrayList<AbstractSymbol> branchTypes = new ArrayList<AbstractSymbol>();
+           Cases caseList = caseExpression.getCases();
+
+           //add all types returned from branch expressions to arraylist
+           for (Enumeration e = caseList.getElements(); e.hasMoreElements();){
+                branch c = (branch)e.nextElement();
+                //recurse on branch expression, add type to list of expressions
+                Expression branchExp = c.getExpression();
+                traverseExpression(currentClass, branchExp, objectSymTab, methodSymTab);
+                AbstractSymbol branchType = branchExp.get_type();
+                branchTypes.add(branchType);
+           }
+
+           //return the lca of all branch types
+           AbstractSymbol finalType = LCA(branchTypes);
+           expression.set_type(finalType);
         }
     }
 
@@ -558,7 +574,12 @@ class programc extends Program {
             
         }
         //return type of LCA
-        return classTable.getClass(ancestors.get(0)).getName();
+         if (Flags.semant_debug){
+            System.out.println("Input Nodes ARE :" + inputTypes);
+            System.out.println("ORIGINAL NODES DEPTHS ARE:" + nodeToDepths);
+            System.out.println("FINAL TYPE IS :" + (classTable.getClass(ancestors.get(0))).getName());
+         }
+        return (classTable.getClass(ancestors.get(0))).getName();
     }
 
     /** Second + Third pass through AST to perform inheritance   **/
