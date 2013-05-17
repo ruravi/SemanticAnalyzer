@@ -218,7 +218,13 @@ Inheritance Tree
 	if statements, where we set the static types of each expression to that outlined 
 	on the assignment handout. This is true for all expressions except for dispatch 
 	and static dispatch, in which we don't know the type of the
-	expression until we specifically assign a type during type checking. 
+	expression (temporarily null type) until we specifically assign a type during type checking. 
+	This approach is correct because if the type can be computed, then we should 
+	immediately annotate the type in the AST. This will make type checking easier the next
+	time we make a pass through the AST. Because entering and exiting scopes are analgous
+	to pushing/popping a stack, we cannot save data in the scope past the first entry. This 
+	is why we decided to first make an initial pass through the AST to add all the data accessible
+	throught the first scope (methods and attributes inside every class). 
 
 	Traversing Expressions
 	Most of the assignments of types were straightforward, except for
@@ -226,8 +232,12 @@ Inheritance Tree
 	new scopes for each branch, and added the types to the object symbol tables 
 	in the scope. For condition statements and case statements, the static type
 	also needed to be determined by finding the type of the lowest common ancestor. 
+	The annotations for the rest of the expressions had types that did not need 
+	further computation. This design is correct because everytime we enter a new
+	method or case branch, we enter a new scope, and thus need to add the objects
+	to the symboltables to keep track. 
 
-	Lowest Common Ancestor
+	Lowest Common Ancestor (Explanation and Correctness)
 	We constructed a hashmap of string names of class types to its associated 
 	depth in the tree. The depth hashmap makes finding the least common ancestor 
 	of a given list of nodes a lot easier. Our algorithm for checking the LCA 
@@ -245,14 +255,16 @@ Inheritance Tree
 	from the parent class, and we type check these methods and 
 	attributes along the way. For each method and attribute, when
 	typechecking, we typecheck the expressions inside them as well. 
-	In this pass of the AST, we are mainly checking for dispatches. 
-	Because the types of the dispatches could not be determined in the first pass, 
+	In this traversal of the AST, we are mainly checking for dispatch types. 
+	Because the types of the dispatches could not be determined in the first traversal, 
 	we assign types to dispatch and static dispatch in this second pass.
 	For each expression, we recursively type check any branching expression.
-	For those expression whose types have already been assigned in the first pass
+	For those expressions whose types have already been assigned in the first traversal
 	of the AST, we do not set the types again. For expressions that 
-	might include dispatch, however, we set the types here in this second pass. 
-
+	might include dispatch, however, we set the types here in this second traversal. 
+	This approach is correct, because for types that have already been annotated, we do 
+	not need to annotate them again. Thus, only for expressions that could have dispatch
+	do we set_type of the given expression. 
 
 TEST CASES
 
@@ -264,35 +276,43 @@ To make our code more robust, the following test cases were constructed and used
 
 Good tests (good.cl)
 
-Assigning self_types
-general Inheritance
-general formals with the 3 types (Int, bool, string)
-Using methods before declarations
-dispatch to a method that hasn't been declared yet
-general assignment expressions
-Expression constants (int/bool/string)
-Reassigning constants to the same Object
-If statement with dispatch expression
-let statement with init
-let statement without init
-valid case statements
-valid loop, isvoid, not, arithmetic, compare, neg, and equals statements
+	Assigning self_types
+	general Inheritance
+	general formals with the 3 types (Int, bool, string)
+	Using methods before declarations
+	dispatch to a method that hasn't been declared yet
+	general assignment expressions
+	Expression constants (int/bool/string)
+	Reassigning constants to the same Object
+	If statement with dispatch expression
+	let statement with init
+	let statement without init
+	valid case statements
+	valid loop, isvoid, not, arithmetic, compare, neg, and equals statements
 
 
-Bad Tests (bad.cl)
+Error Tests (bad.cl)
 
-Illegal attribute assignments
-Illegal use of self_type in formal parameters
-parameter mismatch in formals
-Illegal number of arguments in methods
-undefined methods
-Invalid dispatch and static dispatch formats
-Illegal Overriding
-Invalid Overriding by changing the signature
-Invalid format for arithmetic, not, isvoid, compare statements
-invalid return types 
-Invalid equalities
+	Illegal attribute assignments
+	Illegal use of self_type in formal parameters
+	parameter mismatch in formals
+	Illegal number of arguments in methods
+	undefined methods
+	Invalid dispatch and static dispatch formats
+	Illegal Overriding
+	Invalid Overriding by changing the signature
+	Invalid format for arithmetic, not, isvoid, compare statements
+	invalid return types 
+	Invalid equalities
 
 Inheritance Tests
-Test for cycles in inheritance graph (inheritancegraph2.cl)
-Test for valid inheritances (inheritancegraph1.cl)
+	(inheritancegraph2.cl)
+	Test for cycles in inheritance graph 
+
+	(inheritancegraph1.cl)
+	Test for valid inheritances 
+	Test for classes that inherit from int, string, bool, and IO
+
+We intentionally tried to break our semantic analyzer with the test cases 
+to ensure that our code was robust, and made sure that for every test case
+our analyzer had the same output as that of the reference analyzer. 
