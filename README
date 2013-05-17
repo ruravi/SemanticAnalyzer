@@ -176,20 +176,123 @@ Instructions
 Write-up for PA3
 ----------------
 
-DESIGN DECISIONS
+DESIGN DECISIONS AND CORRECTNESS OF ALGORITHMS
 
 Inheritance Tree
 	To keep track of class dependencies and to make sure there are no
-	cyclic dependencies, we used a directed graph. Our representation of this graph was a HashMap of nodes to a list of all the nodes' children, where a node in this case is the toString value of a unique class type. We chose this data structure because it is a very simple and intuitive way of modeling this directed graph. Starting from the object class, we now have a top down directed graph. We also made a hashmap of string names of class types to the actual class_c types to make looking up of actual class_c data types efficient. 
+	cyclic dependencies, we used a directed graph. Our representation of this
+	 graph was a HashMap of nodes to a list of all the nodes' children, where a 
+	 node in this case is the toString value of a unique class type. We chose 
+	 this data structure because it is a very simple and intuitive way of modeling 
+	 this directed graph. Starting from the object class, we now have a top down 
+	 directed graph. We also made a hashmap of string names of class types to the
+	 actual class_c types to make looking up of actual class_c data types efficient. 
 
-	To initialize this hashmap, we add IO, Int, Bool, and Str to the list of children of Object (as defined by the starter code), the root node in our inheritance tree. 
+	Building the Tree
+	To initialize this hashmap, we add IO, Int, Bool, and Str to the list of children
+	 of Object (as defined by the starter code), the root node in our inheritance 
+	 tree. From the given list of classes, we iterate through all classes. If the
+	 class name is already present in our hashmap nameToClass, then there is a 
+	 redefinition error. If the new class is not present, then we add it to our
+	 nameToClass hashmap. We then check if the parent of the current node exists 
+	 in our hashmap, and if so, add the given node to its parent's list of children.   
 
+	Cycle Checking
+	We checked for cycles by using depth first traversal on our inheritance tree to 
+	mark all visited nodes. We begin at the root, and recurse on the children of each 
+	node, marking a node as we visit it in this top down approach. If we visit a node
+	that has already been marked as true/visited, then we know a cycle exists. 
 
-	We constructed a hashmap of string names of class types to its associated depth in the tree. The depth hashmap makes finding the least common ancestor of a given list of nodes a lot easier. 
+1st Pass: Naming and Scoping
 
+	We implemented naming and scoping in the programc class. We first declared
+	two symbol tables to keep track of the scope, one for objects symbols and 
+	one for method symbols. The first time we traverseAST we want to set the 
+	scope of all classes, methods, and attributes. We then
+	assign types to all possible expressions inside the methods
+	and attributes. For each class, we begin a new scope and traverse down the class AST. 
+	While inside the class, we add all methods and attributes to their respective object 
+	and method symbol tables. When the method or attribute gives way
+	to an expression, we traverse the Expression to assign types and 
+	do scoping in the expression. We separate out each type of expression in cascading 
+	if statements, where we set the static types of each expression to that outlined 
+	on the assignment handout. This is true for all expressions except for dispatch 
+	and static dispatch, in which we don't know the type of the
+	expression until we specifically assign a type during type checking. 
 
-CORRECTNESS
+	Traversing Expressions
+	Most of the assignments of types were straightforward, except for
+	a few cases. For let expressions and case branches we entered
+	new scopes for each branch, and added the types to the object symbol tables 
+	in the scope. For condition statements and case statements, the static type
+	also needed to be determined by finding the type of the lowest common ancestor. 
+
+	Lowest Common Ancestor
+	We constructed a hashmap of string names of class types to its associated 
+	depth in the tree. The depth hashmap makes finding the least common ancestor 
+	of a given list of nodes a lot easier. Our algorithm for checking the LCA 
+	consisted of finding the depths of all nodes in our inheritance graph, where
+	the root node is at depth zero. Given a list of input types, we want to return
+	the LCA. For each type in the arraylist of input types, we determine the depth, 
+	and then find the lowest depth among them (depth closest to the root). We then 
+	call get parent on all nodes until they are all at the lowest common depth. This 
+	is correct because the LCA is at least at the lowest common depth. After all 
+	nodes are at the lowest common depth, we call getparent on the nodes and compare. 
+	If all are equal, then we return the type of any one of those nodes.                                                                                                                                                                                                                                    
+2nd pass: Type Checking and Filling in Inherited Methods/Attributes
+	
+	We traverse the AST again a second time to fill in methods and attributes inherited
+	from the parent class, and we type check these methods and 
+	attributes along the way. For each method and attribute, when
+	typechecking, we typecheck the expressions inside them as well. 
+	In this pass of the AST, we are mainly checking for dispatches. 
+	Because the types of the dispatches could not be determined in the first pass, 
+	we assign types to dispatch and static dispatch in this second pass.
+	For each expression, we recursively type check any branching expression.
+	For those expression whose types have already been assigned in the first pass
+	of the AST, we do not set the types again. For expressions that 
+	might include dispatch, however, we set the types here in this second pass. 
 
 
 TEST CASES
 
+We placed our tests in a folder named "tests"
+We tested correctness of output by using a script that checks the difference 
+between the output of our semantic analyzer and the reference semantic analyzer.
+
+To make our code more robust, the following test cases were constructed and used. 
+
+Good tests (good.cl)
+
+Assigning self_types
+general Inheritance
+general formals with the 3 types (Int, bool, string)
+Using methods before declarations
+dispatch to a method that hasn't been declared yet
+general assignment expressions
+Expression constants (int/bool/string)
+Reassigning constants to the same Object
+If statement with dispatch expression
+let statement with init
+let statement without init
+valid case statements
+valid loop, isvoid, not, arithmetic, compare, neg, and equals statements
+
+
+Bad Tests (bad.cl)
+
+Illegal attribute assignments
+Illegal use of self_type in formal parameters
+parameter mismatch in formals
+Illegal number of arguments in methods
+undefined methods
+Invalid dispatch and static dispatch formats
+Illegal Overriding
+Invalid Overriding by changing the signature
+Invalid format for arithmetic, not, isvoid, compare statements
+invalid return types 
+Invalid equalities
+
+Inheritance Tests
+Test for cycles in inheritance graph (inheritancegraph2.cl)
+Test for valid inheritances (inheritancegraph1.cl)
