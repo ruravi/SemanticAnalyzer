@@ -494,8 +494,8 @@ class programc extends Program {
     	    inputTypes.add(then_exp.get_type());
             inputTypes.add(else_exp.get_type());
      	    AbstractSymbol finalType = LCA(inputTypes);
-            
-            if (finalType!= NULL)expression.set_type(finalType);
+
+            if (finalType!= null)expression.set_type(finalType);
 
         } else if (expression instanceof typcase) {
 	       typcase caseExpression = (typcase)expression;
@@ -516,7 +516,7 @@ class programc extends Program {
 
            //return the lca of all branch types
            AbstractSymbol finalType = LCA(branchTypes);
-           if (finalType != NULL) expression.set_type(finalType);
+           if (finalType != null) expression.set_type(finalType);
         }
     }
 
@@ -526,7 +526,7 @@ class programc extends Program {
         int smallestDepth = Integer.MAX_VALUE;
         HashMap<AbstractSymbol, Integer> nodeToDepths = new HashMap<AbstractSymbol, Integer>();
 	    for (AbstractSymbol type : inputTypes) {
-            if (type == TreeConstants.No_type) return NULL;
+            if (type == TreeConstants.No_type) return null;
             int depth = classTable.getDepthFromNode(type.toString());
             if (depth < smallestDepth) smallestDepth = depth;
             nodeToDepths.put(type, depth);
