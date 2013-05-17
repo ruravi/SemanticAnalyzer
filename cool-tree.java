@@ -837,6 +837,8 @@ class programc extends Program {
             // This can change of attributes got pruned out because of inheritance checks
             if ( ((object)expression).getName() == TreeConstants.self ) {
                 expression.set_type(TreeConstants.SELF_TYPE);
+            } else  if (objectSymTab.lookup(((object)expression).getName()) == null) {
+                expression.set_type(TreeConstants.Object_);
             } else {
                 expression.set_type((AbstractSymbol)objectSymTab.lookup(((object)expression).getName()));
             }
