@@ -1,3 +1,7 @@
+
+user:ruravi
+user:peterhu
+
 README file for Programming Assignment 3 (Java edition)
 ======================================================
 
@@ -169,5 +173,23 @@ Instructions
 
 ---8<------8<------8<------8<---cut here---8<------8<------8<------8<---
 
-Write-up for PA4
+Write-up for PA3
 ----------------
+
+DESIGN DECISIONS
+
+Inheritance Tree
+	To keep track of class dependencies and to make sure there are no
+	cyclic dependencies, we used a directed graph. Our representation of this graph was a HashMap of nodes to a list of all the nodes' children, where a node in this case is the toString value of a unique class type. We chose this data structure because it is a very simple and intuitive way of modeling this directed graph. Starting from the object class, we now have a top down directed graph. We also made a hashmap of string names of class types to the actual class_c types to make looking up of actual class_c data types efficient. 
+
+	To initialize this hashmap, we add IO, Int, Bool, and Str to the list of children of Object (as defined by the starter code), the root node in our inheritance tree. 
+
+
+	We constructed a hashmap of string names of class types to its associated depth in the tree. The depth hashmap makes finding the least common ancestor of a given list of nodes a lot easier. 
+
+
+CORRECTNESS
+
+
+TEST CASES
+
