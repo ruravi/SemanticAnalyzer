@@ -1,6 +1,10 @@
 class C {
 	a : Int;
 	b : Bool;
+
+	(* Illegal attribute assignment *)
+	attribute1 : Bool <- 5;
+
 	init(x : Int, y : Bool) : C {
            {
 		a <- x;
