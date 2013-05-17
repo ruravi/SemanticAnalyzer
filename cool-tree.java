@@ -599,8 +599,6 @@ class programc extends Program {
         Boolean isMainMethod = false;
         Boolean mainClassSeen = false;
         for (Enumeration e = classes.getElements(); e.hasMoreElements(); ) {
-            isMainCLass = false;
-            isMainMethod = false;
             class_c currentClass = ((class_c)e.nextElement());
             String className = currentClass.getName().toString();
             if (Flags.semant_debug) {
@@ -625,8 +623,11 @@ class programc extends Program {
                         System.out.println(objectSymTab);
                     }
 
-                    if (((method)f).getName().equals(TreeConstants.main_meth.toString())) {
+                    if (((method)f).getName() == TreeConstants.main_meth) {
                         isMainMethod =true;
+                        if (Flags.semant_debug) {
+                        System.out.println("Main method seen");
+                    }
                     } 
                 }
             }
@@ -635,6 +636,7 @@ class programc extends Program {
                 if (!isMainMethod) {
                     classTable.semantError(currentClass.getFilename(), currentClass).println("No \'main\' method in class Main");
                 }
+                isMainCLass = false;
             }
         }
 

@@ -23,7 +23,7 @@ class C {
 };
 
 Class Main {
-	main():C {
+	nonmain():C {
 	 {
 	  (* Formal parameter mismatch *)
 	  (new C).init(1,1);
