@@ -574,7 +574,12 @@ class programc extends Program {
             
         }
         //return type of LCA
-        return classTable.getClass(ancestors.get(0)).getName();
+         if (Flags.semant_debug){
+            System.out.println("Input Nodes ARE :" + inputTypes);
+            System.out.println("ORIGINAL NODES DEPTHS ARE:" + nodeToDepths);
+            System.out.println("FINAL TYPE IS :" + (classTable.getClass(ancestors.get(0))).getName());
+         }
+        return (classTable.getClass(ancestors.get(0))).getName();
     }
 
     /** Second + Third pass through AST to perform inheritance   **/
