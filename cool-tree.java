@@ -591,12 +591,23 @@ class programc extends Program {
         // Start type checking from root
         setupInheritedClass(TreeConstants.Object_.toString());
         // Traverse AST and do type checking now
+        Boolean isMainCLass = false;
+        Boolean isMainMethod = false;
+        Boolean mainClassSeen = false;
         for (Enumeration e = classes.getElements(); e.hasMoreElements(); ) {
+            isMainCLass = false;
+            isMainMethod = false;
             class_c currentClass = ((class_c)e.nextElement());
             String className = currentClass.getName().toString();
             if (Flags.semant_debug) {
                System.out.println("Type checking Class " + className);
            }
+
+           if (className.equals(TreeConstants.Main.toString())) {
+            isMainCLass = true;
+            mainClassSeen = true;
+           }
+
            MySymbolTable objectSymTab = objectSymTabMap.get(className);
            MySymbolTable methodSymTab = methodSymTabMap.get(className);
            Features features = currentClass.getFeatures();
@@ -609,8 +620,22 @@ class programc extends Program {
                     if (Flags.semant_debug) {
                         System.out.println(objectSymTab);
                     }
+
+                    if (((method)f).getName().equals(TreeConstants.main_meth.toString())) {
+                        isMainMethod =true;
+                    } 
                 }
             }
+
+            if (isMainCLass) {
+                if (!isMainMethod) {
+                    classTable.semantError(currentClass.getFilename(), currentClass).println("No \'main\' method in class Main");
+                }
+            }
+        }
+
+        if (!mainClassSeen) {
+            classTable.semantError().println("Main class missing");
         }
     }
 
