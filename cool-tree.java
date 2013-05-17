@@ -526,7 +526,11 @@ class programc extends Program {
         int smallestDepth = Integer.MAX_VALUE;
         HashMap<AbstractSymbol, Integer> nodeToDepths = new HashMap<AbstractSymbol, Integer>();
 	    for (AbstractSymbol type : inputTypes) {
-            if (type == TreeConstants.No_type) return null;
+            if (Flags.semant_debug){
+            System.out.println("NODE TYPE IS :" + type);
+          
+             }
+            if (type == null) return null;
             int depth = classTable.getDepthFromNode(type.toString());
             if (depth < smallestDepth) smallestDepth = depth;
             nodeToDepths.put(type, depth);

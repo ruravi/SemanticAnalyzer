@@ -29,9 +29,11 @@ class C {
 	allchecks() : Int {
 		{
 			if b then "True" else prettyprint(b, a, "False") fi;
+
 			(*  Checks that the return types of the two let statements are both the same *)
 			(let a : Bool <- true in isvoid a) = (let b : Int, b : Bool in b);
 				
+
 			let a : String, b : String, c : D in {
 				let a : Bool <- true in isvoid a;
 				case a of 
