@@ -480,10 +480,12 @@ class programc extends Program {
         } 
 	// if then else statment
 	else if (expression instanceof cond) {
+            Expression predicate = ((cond)expression).getPredicate();
     	    Expression then_exp = ((cond)expression).getThen();
             Expression else_exp = ((cond)expression).getElse();
       
             //traverseExpression(currentClass, ((cond)expression).getPredicate(), objectSymTab, methodSymTab);
+            traverseExpression(currentClass, predicate, objectSymTab, methodSymTab);
             traverseExpression(currentClass, then_exp, objectSymTab, methodSymTab);
             traverseExpression(currentClass, else_exp, objectSymTab, methodSymTab);
 
@@ -492,7 +494,8 @@ class programc extends Program {
     	    inputTypes.add(then_exp.get_type());
             inputTypes.add(else_exp.get_type());
      	    AbstractSymbol finalType = LCA(inputTypes);
-    	    expression.set_type(finalType);
+            
+            if (finalType!= NULL)expression.set_type(finalType);
 
         } else if (expression instanceof typcase) {
 	       typcase caseExpression = (typcase)expression;
@@ -513,7 +516,7 @@ class programc extends Program {
 
            //return the lca of all branch types
            AbstractSymbol finalType = LCA(branchTypes);
-           expression.set_type(finalType);
+           if (finalType != NULL) expression.set_type(finalType);
         }
     }
 
@@ -523,6 +526,7 @@ class programc extends Program {
         int smallestDepth = Integer.MAX_VALUE;
         HashMap<AbstractSymbol, Integer> nodeToDepths = new HashMap<AbstractSymbol, Integer>();
 	    for (AbstractSymbol type : inputTypes) {
+            if (type == TreeConstants.No_type) return NULL;
             int depth = classTable.getDepthFromNode(type.toString());
             if (depth < smallestDepth) smallestDepth = depth;
             nodeToDepths.put(type, depth);
