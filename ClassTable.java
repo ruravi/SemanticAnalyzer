@@ -193,6 +193,7 @@ class ClassTable {
     basicClassList.appendElement(Int_class);
     basicClassList.appendElement(Bool_class);
     basicClassList.appendElement(Str_class);
+    
     }
 	
 
@@ -218,6 +219,10 @@ class ClassTable {
     //return depth given name of node
 
     public int getDepthFromNode (String node){
+    	 if (Flags.semant_debug){
+    	 	System.out.println("NODE NAME IS :" + node);
+    	 	System.out.println(getDepth);
+	     }
         int depth = getDepth.get(node);
         return depth;
     }
@@ -229,9 +234,9 @@ class ClassTable {
         if (children == null) return;
  	//if there are children, assign depths to each, and recurse
         if (!children.isEmpty()){
-	    depth = depth -1;
-	    for (String child : children) {
-	        assignDepths(child, depth);
+	    	depth = depth +1;
+	    	for (String child : children) {
+	      	  assignDepths(child, depth);
             }
         }
         
@@ -285,7 +290,14 @@ class ClassTable {
      and also checks of the graph has no cycles **/
     private void buildGraph(Classes classes) {
 	
-	adjacencyList.put("Object", new ArrayList<String>() );
+	adjacencyList.put(TreeConstants.Object_.getString(), new ArrayList<String>() );
+	//add primitives to the children of object
+    ArrayList<String> objectlist = adjacencyList.get(TreeConstants.Object_.getString());
+    objectlist.add(TreeConstants.IO.getString());
+    objectlist.add(TreeConstants.Int.getString());
+    objectlist.add(TreeConstants.Bool.getString());
+    objectlist.add(TreeConstants.Str.getString());
+    adjacencyList.put(TreeConstants.Object_.getString(), objectlist);
 	for (Enumeration e = classes.getElements(); e.hasMoreElements(); ) {
 	    class_c currentClass = ((class_c)e.nextElement());
 
@@ -353,13 +365,15 @@ class ClassTable {
 	}
 	depthFirstSearch(visited, TreeConstants.Object_.toString());
 	// It is legal to inherit from the IO class. So mark classes down that tree as well
-	depthFirstSearch(visited, TreeConstants.IO.getString());
+	
+	/*depthFirstSearch(visited, TreeConstants.IO.getString());
 	// Check for unreachable components - unreachable classes are cycles
 	// Except the Bool, IO, Int and String. Hack - set them to true
 	visited.put(TreeConstants.IO.getString(), true);
 	visited.put(TreeConstants.Bool.getString(), true);
 	visited.put(TreeConstants.Str.getString(), true);
 	visited.put(TreeConstants.Int.getString(), true);
+	*/
 	for (String key : visited.keySet()) {
 		if (!visited.get(key)) {
 			semantError(nameToClass.get(key)).println("Class " + key + " or an ancestor is involved in an inheritance cycle.");
