@@ -94,10 +94,12 @@ class D inherits C {
 		{
 			while true loop
 				{
-					a <- ~9274947;
-					b <- (5 < 7);
+					a <- ~hello;
+					b <- (hello < 7);
 					b <- (5 <= 7);
-					b <- not 5 = 7;
+					b <- not 5;
+					b <- yo + hello;
+					b <- false = 1;
 				}
 			pool;
 
