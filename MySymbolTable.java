@@ -154,6 +154,13 @@ class MySymbolTable {
             }
         }
     }
+
+    public void remove(AbstractSymbol key) {
+        if (tbl.empty()) {
+        Utilities.fatalError("addId: can't remove a symbol without a scope.");
+    }
+    ((Hashtable)tbl.peek()).remove(key);
+    }
 }
     
 	
