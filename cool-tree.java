@@ -828,6 +828,7 @@ class programc extends Program {
             // Check if method actually exists in class T0Prime
             if (!methodEnvironment.get(T0Prime.toString()).containsKey(methodname)) {
                 classTable.semantError(currentClass.getFilename(), e).println("Dispatch to undefined method " + methodname);
+                e.set_type(TreeConstants.Object_);
             } else {
                 // Check if actual and formal conform
                 ArrayList<AbstractSymbol> inferredTypes = new ArrayList<AbstractSymbol>();
@@ -838,6 +839,56 @@ class programc extends Program {
                 }
                 // Check if the number of arguments are the same
                 ArrayList<AbstractSymbol> declaredTypes = methodEnvironment.get(T0Prime.toString()).get(methodname);
+                if (declaredTypes.size() != inferredTypes.size()+1) {
+                    classTable.semantError(currentClass.getFilename(), e).println("Method " + methodname + " called with wrong number of arguments");
+                } else {
+                    // If the number are the same, check each one
+                    for (int i = 0; i < declaredTypes.size() - 1; i++) {
+                        AbstractSymbol inferred = inferredTypes.get(i);
+                        AbstractSymbol declared = declaredTypes.get(i);
+                        if (!classTable.checkConformance(inferred, declared)) {
+                            classTable.semantError(currentClass.getFilename(), e).println("In call of method " + methodname + " type " + inferred + " of parameter number " + i + " does not conform to declared type " + declared);
+                        }
+                    }
+                }
+                // Check, well actually set, return type, regardless of whether there are errors in the actuals/formals
+                AbstractSymbol declaredReturnType = declaredTypes.get(declaredTypes.size() - 1);
+                if (declaredReturnType == TreeConstants.SELF_TYPE) {
+                    declaredReturnType = T0;
+                }
+                e.set_type(declaredReturnType);
+            }
+        } else if (expression instanceof static_dispatch) {
+            static_dispatch e = (static_dispatch)expression;
+            String methodname = e.getName().toString();
+            typeCheckExpression(currentClass, e.getExpression(), objectSymTab, methodSymTab);
+            AbstractSymbol T0 = e.getExpression().get_type();
+            AbstractSymbol T = e.getTypeName();
+
+            if (Flags.semant_debug) {
+                System.out.println("Type checking static dispatch: " + methodname + " of class " + T0);
+                e.dump_with_types(System.out,1);
+            }
+
+            // Check of T0 conforms to T
+            if (!classTable.checkConformance(T0, T)) {
+                classTable.semantError(currentClass.getFilename(), e).println("Expression type " + T0 + " does not conform to declared static dispatch type " + T);
+                e.set_type(TreeConstants.Object_);
+            }
+            // Check if method actually exists in class T
+             else if (!methodEnvironment.get(T.toString()).containsKey(methodname)) {
+                classTable.semantError(currentClass.getFilename(), e).println("Static Dispatch to undefined method " + methodname);
+                e.set_type(TreeConstants.Object_);
+            } else {
+                // Check if actual and formal conform
+                ArrayList<AbstractSymbol> inferredTypes = new ArrayList<AbstractSymbol>();
+                for (Enumeration en = e.getActual().getElements(); en.hasMoreElements();) {
+                    Expression next = (Expression)en.nextElement();
+                    typeCheckExpression(currentClass, next , objectSymTab, methodSymTab);
+                    inferredTypes.add(next.get_type());
+                }
+                // Check if the number of arguments are the same
+                ArrayList<AbstractSymbol> declaredTypes = methodEnvironment.get(T.toString()).get(methodname);
                 if (declaredTypes.size() != inferredTypes.size()+1) {
                     classTable.semantError(currentClass.getFilename(), e).println("Method " + methodname + " called with wrong number of arguments");
                 } else {

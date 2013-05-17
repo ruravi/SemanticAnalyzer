@@ -35,6 +35,9 @@ Class Main {
 	  (new C).iinit(1,true);
 
 	  (new C);
+
+	  (* Invlaid static dispatch *)
+	  (new C)@D.checkLet();
 	 }
 	};
 };
@@ -59,31 +62,32 @@ class D inherits C {
 
 	prettyprint(a : Bool, b : Int, c: String) : Bool {
 		{
-			(* TODO : Valid assignment as LCA of return type always Bool 
-			a <- if b <= 297 then true else false fi; *)
-			(* TODO Invalid assignment as LCA is not 
-			b <- if not a then 397 else new C fi; *)
+			(* TODO : Valid assignment as LCA of return type always Bool *)
+			a <- if b <= 297 then true else false fi;
+			(* TODO Invalid assignment as LCA is not Int *) 
+			b <- if not a then 397 else new C fi; 
 			false;
 		}
 	};
 
-	(*  Invalid let statements *)
+	(*  Invalid let statement *)
 	checkLet() : Int {
-		a
-		(*
 		{
-			(*
-			let a : String, b : String, c : D in {
-				let a : Bool <- true in isvoid a;
-				case a of 
+			(*  Invalid : Type check arithmetic and return type of case *)
+			(case a of 
 					b : Bool => true;
 					b : Int  => (b + 1 ) * 5 / b - 1;
 					b : String => b;
-				esac;
-			}; *)
-		(* valid return type, a is of type Int inherited from base class C *)
+			esac) + 5 ;
+
+			(* Invalid equality with a boolean, type of let is String  *)
+			(let a : String, b : String, c : D in {
+				b;	
+			}) = true;
+
+			(* valid return type, a is of type Int inherited from base class C *)
+			a;
 		}
-		*)
 	};
 
 	checkWhile() : Int {
