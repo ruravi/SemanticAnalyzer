@@ -499,7 +499,7 @@ class programc extends Program {
            traverseExpression(currentClass, caseExpression.getExpression(), objectSymTab, methodSymTab);
            
             ArrayList<AbstractSymbol> branchTypes = new ArrayList<AbstractSymbol>();
-           Cases caselist = caseExpression.getCases();
+           Cases caseList = caseExpression.getCases();
 
            //add all types returned from branch expressions to arraylist
            for (Enumeration e = caseList.getElements(); e.hasMoreElements();){
