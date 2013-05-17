@@ -621,7 +621,7 @@ class programc extends Program {
            for (Enumeration fe = features.getElements(); fe.hasMoreElements();) { 
                 Feature f = ((Feature)fe.nextElement());
                 if ( f instanceof attr ) {
-                    typeCheckAttribute(currentClass, f, objectSymTab, methodSymTab);
+                    typeCheckAttribute(currentClass, (attr) f, objectSymTab, methodSymTab);
                 } else {
                     typeCheckMethod(currentClass, (method)f, objectSymTab, methodSymTab);
                     if (Flags.semant_debug) {
@@ -730,8 +730,24 @@ class programc extends Program {
     }
 
 
-    private void typeCheckAttribute(class_c currentClass, method m, MySymbolTable objectSymTab, MySymbolTable methodSymTab) {
-        
+    private void typeCheckAttribute(class_c currentClass, attr a, MySymbolTable objectSymTab, MySymbolTable methodSymTab) {
+        if (Flags.semant_debug) {
+            System.out.println("Type checking attribute: " + a.getName());
+        }
+        if (!(a.getExpression() instanceof no_expr)) {
+            typeCheckExpression(currentClass, a.getExpression(), objectSymTab, methodSymTab);
+            AbstractSymbol T1 = a.getExpression().get_type();
+            if (T1 == TreeConstants.SELF_TYPE) {
+                T1 = currentClass.getName();
+            }
+            AbstractSymbol T0 = a.getType();
+            if (T0 == TreeConstants.SELF_TYPE) {
+                T0 = currentClass.getName();
+            }
+            if (!classTable.checkConformance(T1, T0)) {
+                classTable.semantError(currentClass.getFilename(), a).println("Inferred type " + T1 + " of initialization of attribute " + a.getName() + " does not conform to declared type " + T0);
+            }
+        }
     }
 
     /** Type check a method and all the expressions in it **/
