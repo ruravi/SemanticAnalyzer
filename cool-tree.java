@@ -621,7 +621,7 @@ class programc extends Program {
            for (Enumeration fe = features.getElements(); fe.hasMoreElements();) { 
                 Feature f = ((Feature)fe.nextElement());
                 if ( f instanceof attr ) {
-                    //typeCheckAttribute(currentClass, f, objectSymTab, methodSymTab);
+                    typeCheckAttribute(currentClass, f, objectSymTab, methodSymTab);
                 } else {
                     typeCheckMethod(currentClass, (method)f, objectSymTab, methodSymTab);
                     if (Flags.semant_debug) {
@@ -727,6 +727,11 @@ class programc extends Program {
                 setupInheritedClass(child);
             }
         }
+    }
+
+
+    private void typeCheckAttribute(class_c currentClass, method m, MySymbolTable objectSymTab, MySymbolTable methodSymTab) {
+        
     }
 
     /** Type check a method and all the expressions in it **/
@@ -977,6 +982,100 @@ class programc extends Program {
                     declaredReturnType = T0;
                 }
                 e.set_type(declaredReturnType);
+            }
+        } else if (expression instanceof loop) {
+            loop e = (loop)expression;
+            typeCheckExpression(currentClass, e.getPredicate(), objectSymTab, methodSymTab);
+            typeCheckExpression(currentClass, e.getBody(), objectSymTab, methodSymTab);
+        } else if (expression instanceof isvoid) {
+            isvoid e = (isvoid)expression;
+            typeCheckExpression(currentClass, e.getExpression(), objectSymTab, methodSymTab);
+        } else if (expression instanceof comp) {
+            comp e = (comp)expression;
+            typeCheckExpression(currentClass, e.getExpression(), objectSymTab, methodSymTab);
+            if (e.getExpression().get_type() != TreeConstants.Bool) {
+                classTable.semantError(currentClass.getFilename(), e).println("Argument of not has type " + e.getExpression().get_type() );
+            }
+        } else if (expression instanceof lt) {
+            lt e = (lt)expression;
+            typeCheckExpression(currentClass, e.getLHS(), objectSymTab, methodSymTab);
+            typeCheckExpression(currentClass, e.getRHS(), objectSymTab, methodSymTab);
+
+            if (e.getLHS().get_type() != TreeConstants.Int ||  e.getRHS().get_type() != TreeConstants.Int ) {
+                classTable.semantError(currentClass.getFilename(), e).println("Non-Int arguments: " +  e.getLHS().get_type() + " < " + e.getRHS().get_type());
+            }
+        } else if (expression instanceof leq) {
+            leq e = (leq)expression;
+            typeCheckExpression(currentClass, e.getLHS(), objectSymTab, methodSymTab);
+            typeCheckExpression(currentClass, e.getRHS(), objectSymTab, methodSymTab);
+
+            if (e.getLHS().get_type() != TreeConstants.Int ||  e.getRHS().get_type() != TreeConstants.Int ) {
+                classTable.semantError(currentClass.getFilename(), e).println("Non-Int arguments: " +  e.getLHS().get_type() + " <= " + e.getRHS().get_type());
+            }
+        } else if (expression instanceof neg) {
+            neg e = (neg)expression;
+            typeCheckExpression(currentClass, e.getExpression(), objectSymTab, methodSymTab);
+            if (e.getExpression().get_type() != TreeConstants.Int) {
+                classTable.semantError(currentClass.getFilename(), e).println("Argument of ~ has type " + e.getExpression().get_type() + " instead of Int" );
+            }
+        } else if (expression instanceof plus) {
+            plus e = (plus) expression;
+            typeCheckExpression(currentClass, e.getLHS(), objectSymTab, methodSymTab);
+            typeCheckExpression(currentClass, e.getRHS(), objectSymTab, methodSymTab);
+
+            AbstractSymbol LHSType = e.getLHS().get_type();
+            AbstractSymbol RHSType = e.getRHS().get_type();
+
+            if ( LHSType != TreeConstants.Int || RHSType != TreeConstants.Int) {
+                classTable.semantError(currentClass.getFilename(), e).println("Non-Int arguments " + LHSType + "  + " + RHSType);
+            }
+        } else if (expression instanceof sub) {
+            sub e = (sub) expression;
+            typeCheckExpression(currentClass, e.getLHS(), objectSymTab, methodSymTab);
+            typeCheckExpression(currentClass, e.getRHS(), objectSymTab, methodSymTab);
+
+            AbstractSymbol LHSType = e.getLHS().get_type();
+            AbstractSymbol RHSType = e.getRHS().get_type();
+
+            if ( LHSType != TreeConstants.Int || RHSType != TreeConstants.Int) {
+                classTable.semantError(currentClass.getFilename(), e).println("Non-Int arguments " + LHSType + "  - " + RHSType);
+            }
+        } else if (expression instanceof mul) {
+            mul e = (mul) expression;
+            typeCheckExpression(currentClass, e.getLHS(), objectSymTab, methodSymTab);
+            typeCheckExpression(currentClass, e.getRHS(), objectSymTab, methodSymTab);
+
+            AbstractSymbol LHSType = e.getLHS().get_type();
+            AbstractSymbol RHSType = e.getRHS().get_type();
+
+            if ( LHSType != TreeConstants.Int || RHSType != TreeConstants.Int) {
+                classTable.semantError(currentClass.getFilename(), e).println("Non-Int arguments " + LHSType + "  * " + RHSType);
+            }
+        } else if (expression instanceof divide) {
+            divide e = (divide) expression;
+            typeCheckExpression(currentClass, e.getLHS(), objectSymTab, methodSymTab);
+            typeCheckExpression(currentClass, e.getRHS(), objectSymTab, methodSymTab);
+
+            AbstractSymbol LHSType = e.getLHS().get_type();
+            AbstractSymbol RHSType = e.getRHS().get_type();
+
+            if ( LHSType != TreeConstants.Int || RHSType != TreeConstants.Int) {
+                classTable.semantError(currentClass.getFilename(), e).println("Non-Int arguments " + LHSType + "  / " + RHSType);
+            }
+        } else if (expression instanceof eq) {
+            eq e = (eq) expression;
+            typeCheckExpression(currentClass, e.getLHS(), objectSymTab, methodSymTab);
+            typeCheckExpression(currentClass, e.getRHS(), objectSymTab, methodSymTab);
+
+            AbstractSymbol LHSType = e.getLHS().get_type();
+            AbstractSymbol RHSType = e.getRHS().get_type();
+
+            if ( (LHSType == TreeConstants.Int && RHSType == TreeConstants.Int) ||
+                (LHSType == TreeConstants.Bool && RHSType == TreeConstants.Bool) ||
+                (LHSType == TreeConstants.Str && RHSType == TreeConstants.Str)  )
+             {
+             } else {
+                classTable.semantError(currentClass.getFilename(), e).println("Illegal comparison with a basic type");
             }
         }
 
