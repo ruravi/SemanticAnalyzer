@@ -2,10 +2,13 @@ class C {
 	a : Int;
 	b : Bool;
 	c : String;
+	d : D;
 	init(x : Int, y : Bool) : C {
            {
 		a <- x;
 		b <- y;
+		(* dispatch to a method not declared yet - valid *)
+		d <- (new D).selfreferences();
 		self;
            }
 	};
@@ -25,7 +28,7 @@ class C {
 	loops, isvoid, not, arithmetic, compare, neg and equals *)
 	allchecks() : Int {
 		{
-			-- if b then "True" else prettyprint(b, a, "False") fi;
+			-- TODO: if b then "True" else prettyprint(b, a, "False") fi;
 			let a : String, b : String, c : D in {
 				let a : Bool <- true in isvoid a;
 				case a of 
@@ -46,10 +49,17 @@ class C {
 			let c : Int <- 24809 in  (a + 1 ) * 5 / c - 1;
 		}
 	};
+
+	(* method to check self type return *)
+	selfreferences() : SELF_TYPE {
+		self
+	};
 };
 
-class D {
-
+class D inherits C {
+	(* Valid assignment of type D to an object of superclass C *)
+	e : C <- selfreferences();
+	f : D <- new SELF_TYPE;
 };
 
 Class Main {

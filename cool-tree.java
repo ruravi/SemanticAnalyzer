@@ -581,6 +581,9 @@ class programc extends Program {
                     //typeCheckAttribute(currentClass, f, objectSymTab, methodSymTab);
                 } else {
                     typeCheckMethod(currentClass, (method)f, objectSymTab, methodSymTab);
+                    if (Flags.semant_debug) {
+                        System.out.println(objectSymTab);
+                    }
                 }
             }
         }
@@ -615,6 +618,8 @@ class programc extends Program {
                 if (f instanceof attr) {
                     if (parentsSymTab.lookup(((attr)f).getName()) != null) {
                         classTable.semantError(currentClass.getFilename(), f).println("Attribute " + ((attr)f).getName().toString() + " is an attribute of an inherited class");
+                        // And remove the redefined attribute from this guy's symbol table
+                        myObjSymTab.remove(((attr)f).getName());
                     }
                 } else {
                     // A method can, provided the signature is the same
@@ -624,8 +629,18 @@ class programc extends Program {
                         ArrayList<AbstractSymbol> subclassSignature = myMethSymTab.get(methodname);
                         ArrayList<AbstractSymbol> inheritclassSignature = parentsMethodSymTab.get(methodname);
                         // Check if the two lists are exactly same
-                        if (!subclassSignature.equals(inheritclassSignature)) {
-                            classTable.semantError(currentClass.getFilename(), m).println("Overriding Method " + methodname + " should have same signature as in parent class " + parent);
+                        if (subclassSignature.size() != inheritclassSignature.size()) {
+                            classTable.semantError(currentClass.getFilename(), m).println("Incompatible number of formal parameters in redefined method" + methodname );
+                        } else {
+                            for ( int j = 0; j < subclassSignature.size(); j++) {
+                                AbstractSymbol subclassFormal = subclassSignature.get(j);
+                                AbstractSymbol inheritclassFormal = inheritclassSignature.get(j);
+                                if (subclassFormal != inheritclassFormal) {
+                                    classTable.semantError(currentClass.getFilename(), m).println("In redefined method " + methodname + " type of formal parameter " + subclassFormal + " is different from original return type " + inheritclassFormal);
+                                    myMethSymTab.remove(methodname);
+                                    break;
+                                }
+                            }
                         }
                     }
                 }
@@ -637,6 +652,12 @@ class programc extends Program {
                 if (!myMethSymTab.containsKey(methodName)) {
                     myMethSymTab.put(methodName, parentsMethodSymTab.get(methodName));
                 }
+            }
+
+            if (Flags.semant_debug) {
+                System.out.println("Child : " + currentClassName);
+                System.out.println("Child's object Symbol Table : " + myObjSymTab);
+                System.out.println("Child's method Symbol Table : " + myMethSymTab);
             }
         }
         /* Recurse on the children of this class */
@@ -658,15 +679,20 @@ class programc extends Program {
 
         if (Flags.semant_debug) {
             System.out.println("Type checking method: " + methodname);
+            m.dump_with_types(System.out,1);
         }
 
         for (Enumeration e = formals.getElements(); e.hasMoreElements();) {
             formalc formal = ((formalc)e.nextElement());
             // Check if the type of this formal is valid
-            if ( !classTable.isValidType(formal.getType())) {
+            if (formal.getType() == TreeConstants.SELF_TYPE) {
+                classTable.semantError(currentClass.getFilename(), formal).println("formal parameter " + formal.getName() + " cannot have type SELF_TYPE");
+            } else if ( !classTable.isValidType(formal.getType())) {
                 classTable.semantError(currentClass.getFilename(), formal).println("Class " + formal.getType() + " of formal parameter " + formal.getName() + " is undefined");
+            } else {
+                // Accept this formal as a valid formal only if it is valid and not a selftype
+                objectSymTab.addId(formal.getName(), formal.getType());
             }
-            objectSymTab.addId(formal.getName(), formal.getType());
         }
         // Check return type
         typeCheckExpression(currentClass, m.getExpression(), objectSymTab, methodSymTab);
@@ -697,13 +723,12 @@ class programc extends Program {
     private void typeCheckExpression(class_c currentClass, Expression expression, MySymbolTable objectSymTab, MySymbolTable methodSymTab) {
         String className = currentClass.getName().getString();
         if (expression instanceof object) {
-            // Wonder if this can ever happen
-            /*
-            AbstractSymbol name = ((object)expression).getName();
-            if (objectSymTab.lookup(name) != ((object)expression).get_type()) {
-                classTable.semantError(currentClass.getFilename(), expression).println("ID " + name + " has the wrong type");
+            // This can change of attributes got pruned out because of inheritance checks
+            if ( ((object)expression).getName() == TreeConstants.self ) {
+                expression.set_type(TreeConstants.SELF_TYPE);
+            } else {
+                expression.set_type((AbstractSymbol)objectSymTab.lookup(((object)expression).getName()));
             }
-            */
         } else if (expression instanceof assign) {
             assign e = (assign)expression;
             typeCheckExpression(currentClass, e.getExpression(), objectSymTab, methodSymTab);
@@ -782,19 +807,21 @@ class programc extends Program {
                     typeCheckExpression(currentClass, next , objectSymTab, methodSymTab);
                     inferredTypes.add(next.get_type());
                 }
+                // Check if the number of arguments are the same
                 ArrayList<AbstractSymbol> declaredTypes = methodEnvironment.get(T0Prime.toString()).get(methodname);
                 if (declaredTypes.size() != inferredTypes.size()+1) {
                     classTable.semantError(currentClass.getFilename(), e).println("Method " + methodname + " called with wrong number of arguments");
-                }
-
-                for (int i = 0; i < declaredTypes.size() - 1; i++) {
-                    AbstractSymbol inferred = inferredTypes.get(i);
-                    AbstractSymbol declared = declaredTypes.get(i);
-                    if (!classTable.checkConformance(inferred, declared)) {
-                        classTable.semantError(currentClass.getFilename(), e).println("In call of method " + methodname + " type " + inferred + " of parameter number " + i + " does not conform to declared type " + declared);
+                } else {
+                    // If the number are the same, check each one
+                    for (int i = 0; i < declaredTypes.size() - 1; i++) {
+                        AbstractSymbol inferred = inferredTypes.get(i);
+                        AbstractSymbol declared = declaredTypes.get(i);
+                        if (!classTable.checkConformance(inferred, declared)) {
+                            classTable.semantError(currentClass.getFilename(), e).println("In call of method " + methodname + " type " + inferred + " of parameter number " + i + " does not conform to declared type " + declared);
+                        }
                     }
                 }
-                // Check, well actually set, return type
+                // Check, well actually set, return type, regardless of whether there are errors in the actuals/formals
                 AbstractSymbol declaredReturnType = declaredTypes.get(declaredTypes.size() - 1);
                 if (declaredReturnType == TreeConstants.SELF_TYPE) {
                     declaredReturnType = T0;
