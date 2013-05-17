@@ -501,22 +501,27 @@ class programc extends Program {
 	       typcase caseExpression = (typcase)expression;
            traverseExpression(currentClass, caseExpression.getExpression(), objectSymTab, methodSymTab);
            
+          
             ArrayList<AbstractSymbol> branchTypes = new ArrayList<AbstractSymbol>();
            Cases caseList = caseExpression.getCases();
 
            //add all types returned from branch expressions to arraylist
            for (Enumeration e = caseList.getElements(); e.hasMoreElements();){
+                objectSymTab.enterScope();
                 branch c = (branch)e.nextElement();
                 //recurse on branch expression, add type to list of expressions
                 Expression branchExp = c.getExpression();
+                objectSymTab.addId(c.getName(), c.getType());
                 traverseExpression(currentClass, branchExp, objectSymTab, methodSymTab);
                 AbstractSymbol branchType = branchExp.get_type();
                 branchTypes.add(branchType);
+                 objectSymTab.exitScope();
            }
 
            //return the lca of all branch types
            AbstractSymbol finalType = LCA(branchTypes);
            if (finalType != null) expression.set_type(finalType);
+          
         }
     }
 
@@ -751,7 +756,36 @@ class programc extends Program {
 
     private void typeCheckExpression(class_c currentClass, Expression expression, MySymbolTable objectSymTab, MySymbolTable methodSymTab) {
         String className = currentClass.getName().getString();
-        if (expression instanceof object) {
+        if (expression instanceof typcase){
+
+          
+            //check first expression
+           typcase caseExpression = (typcase)expression;
+           typeCheckExpression(currentClass, caseExpression.getExpression(), objectSymTab, methodSymTab);
+           
+            //loop over branches and typecheck each branch
+            ArrayList<AbstractSymbol> branchTypes = new ArrayList<AbstractSymbol>();
+           Cases caseList = caseExpression.getCases();
+
+           //add all types returned from branch expressions to arraylist
+           for (Enumeration e = caseList.getElements(); e.hasMoreElements();){
+                objectSymTab.enterScope();
+                branch c = (branch)e.nextElement();
+                //recurse on branch expression, add type to list of expressions
+                Expression branchExp = c.getExpression();
+                 objectSymTab.addId(c.getName(), c.getType());
+                typeCheckExpression(currentClass, branchExp, objectSymTab, methodSymTab);
+                AbstractSymbol branchType = branchExp.get_type();
+                branchTypes.add(branchType);
+                objectSymTab.exitScope();
+           }
+
+           //return the lca of all branch types
+           AbstractSymbol finalType = LCA(branchTypes);
+           expression.set_type(finalType);
+        } 
+       
+        else if (expression instanceof object) {
             // This can change of attributes got pruned out because of inheritance checks
             if ( ((object)expression).getName() == TreeConstants.self ) {
                 expression.set_type(TreeConstants.SELF_TYPE);
@@ -784,6 +818,15 @@ class programc extends Program {
             if (typeOfPredicate != TreeConstants.Bool) {
                 classTable.semantError(currentClass.getFilename(), e).println("Predicate of \"if\" does not have type Bool");
             }
+
+             //set final type of cond expression to the lowest common ancestor of then and else expressions
+            ArrayList<AbstractSymbol> inputTypes = new ArrayList<AbstractSymbol>();
+            inputTypes.add(e.getThen().get_type());
+            inputTypes.add(e.getElse().get_type());
+            AbstractSymbol finalType = LCA(inputTypes);
+
+            e.set_type(finalType);
+
         } else if (expression instanceof let) {
             let e = (let)expression;
             typeCheckExpression(currentClass, e.getInit(), objectSymTab, methodSymTab);
