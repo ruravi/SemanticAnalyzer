@@ -28,7 +28,7 @@ class C {
 	loops, isvoid, not, arithmetic, compare, neg and equals *)
 	allchecks() : Int {
 		{
-			-- TODO: if b then "True" else prettyprint(b, a, "False") fi;
+			if b then "True" else prettyprint(b, a, "False") fi;
 			let a : String, b : String, c : D in {
 				let a : Bool <- true in isvoid a;
 				case a of 
