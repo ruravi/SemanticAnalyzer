@@ -28,7 +28,10 @@ class C {
 	loops, isvoid, not, arithmetic, compare, neg and equals *)
 	allchecks() : Int {
 		{
-			-- TODO: if b then "True" else prettyprint(b, a, "False") fi;
+			if b then "True" else prettyprint(b, a, "False") fi;
+			(*  Checks that the return types of the two let statements are both the same *)
+			(let a : Bool <- true in isvoid a) = (let b : Int, b : Bool in b);
+				
 			let a : String, b : String, c : D in {
 				let a : Bool <- true in isvoid a;
 				case a of 
@@ -36,6 +39,7 @@ class C {
 					b : Int  => (b + 1 ) * 5 / b - 1;
 					b : String => b;
 				esac;
+				
 			};
 			while true loop
 				{
@@ -57,7 +61,7 @@ class C {
 };
 
 class D inherits C {
-	(* Valid assignment of type D to an object of superclass C *)
+	(* TODO : attribute type chekcing Valid assignment of type D to an object of superclass C *)
 	e : C <- selfreferences();
 	f : D <- new SELF_TYPE;
 };
