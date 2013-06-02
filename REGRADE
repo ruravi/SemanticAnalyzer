@@ -1,0 +1,128 @@
+Fix1:
+=================================================================================
+Handled SELF_TYPE in type checking case statements. The function signature that changed here is LCA(), all the diffs of places where this function is called has been omitted below.
+	Fixes - arith.cl, primes.cl
+Diff:
+=====
+  // find the lowest common ancestor in inheritance tree 
+-    private AbstractSymbol LCA (ArrayList<AbstractSymbol> inputTypes) {
++    private AbstractSymbol LCA (ArrayList<AbstractSymbol> inputTypes, class_c currentClass) {
+ 
+         int smallestDepth = Integer.MAX_VALUE;
++        Boolean selfEncountered = false;
+         HashMap<AbstractSymbol, Integer> nodeToDepths = new HashMap<AbstractSymbol, Integer>();
+ 	    for (AbstractSymbol type : inputTypes) {
+             if (Flags.semant_debug){
+@@ -536,7 +538,13 @@ class programc extends Program {
+           
+              }
+             if (type == null) return null;
+-            int depth = classTable.getDepthFromNode(type.toString());
++            int depth;
++            if (type.getString().equals(TreeConstants.SELF_TYPE.getString())) {
++                selfEncountered = true;
++                depth = classTable.getDepthFromNode( currentClass.getName().getString() );
++            } else {
++                depth = classTable.getDepthFromNode(type.toString());
++            }
+             if (depth < smallestDepth) smallestDepth = depth;
+             nodeToDepths.put(type, depth);
+         }
+@@ -547,6 +555,9 @@ class programc extends Program {
+             int depth = nodeToDepths.get(node);
+             int difference = depth - smallestDepth;
+             String nodeName = node.toString();
++            if (nodeName.equals(TreeConstants.SELF_TYPE.getString())) {
++                nodeName = currentClass.getName().getString();
++            }
+             for (int i = 0; i < difference; i++){
+                 nodeName = classTable.getParent(nodeName);
+             }
+@@ -592,7 +603,11 @@ class programc extends Program {
+             System.out.println("ORIGINAL NODES DEPTHS ARE:" + nodeToDepths);
+             System.out.println("FINAL TYPE IS :" + (classTable.getClass(ancestors.get(0))).getName());
+          }
+-        return (classTable.getClass(ancestors.get(0))).getName();
++         if (selfEncountered && ancestors.get(0).equals(currentClass.getName().getString())) {
++            return TreeConstants.SELF_TYPE;
++         } else {
++            return (classTable.getClass(ancestors.get(0))).getName();
++        }
+     }
+
+Fix2:
+======================================================================
+Attribute in symbol table check before running inheritane setup
+	Fixes - classes.cl, life.cl
+Diff
+=====
+@@ -378,7 +378,7 @@ class programc extends Program {
+             if ( ((object)expression).getName() == TreeConstants.self ) {
+                 expression.set_type(TreeConstants.SELF_TYPE);
+             } else if (objectSymTab.lookup(((object)expression).getName()) == null) {
+-                classTable.semantError(currentClass.getFilename(),expression).println("Undeclared identifier " + ((object)expression).getName());
++                //classTable.semantError(currentClass.getFilename(),expression).println("Undeclared identifier " + ((object)expression).getName());
+                 expression.set_type(TreeConstants.Object_);
+             } else {
+                 // Set the type of this object from the symbol table, if it exists
+@@ -461,9 +461,10 @@ class programc extends Program {
+             }
+             // TODO: Fill in the type of dispatch here ?
+         } else if (expression instanceof assign) {
++            /*
+             if (objectSymTab.lookup(((assign)expression).getName()) == null) {
+                 classTable.semantError(currentClass.getFilename(),expression).println("Undeclared identifier " + ((assign)expression).getName());
+-            }
++            } */
+             Expression e = ((assign)expression).getExpression();
+             traverseExpression( currentClass, e, objectSymTab, methodSymTab);
+             expression.set_type(e.get_type());
+@@ -493,7 +494,7 @@ class programc extends Program {
+     	    ArrayList<AbstractSymbol> inputTypes = new ArrayList<AbstractSymbol>();
+     	    inputTypes.add(then_exp.get_type());
+             inputTypes.add(else_exp.get_type());
+@@ -838,6 +853,7 @@ class programc extends Program {
+             if ( ((object)expression).getName() == TreeConstants.self ) {
+                 expression.set_type(TreeConstants.SELF_TYPE);
+             } else  if (objectSymTab.lookup(((object)expression).getName()) == null) {
++                classTable.semantError(currentClass.getFilename(),expression).println("Undeclared identifier " + ((object)expression).getName());
+                 expression.set_type(TreeConstants.Object_);
+             } else {
+                 expression.set_type((AbstractSymbol)objectSymTab.lookup(((object)expression).getName()));
+@@ -848,13 +864,17 @@ class programc extends Program {
+             e.set_type(e.getExpression().get_type());
+             AbstractSymbol inferredType = e.getExpression().get_type();
+             AbstractSymbol declaredType = (AbstractSymbol) objectSymTab.lookup(e.getName());
++            if (objectSymTab.lookup(((assign)expression).getName()) == null) {
++                classTable.semantError(currentClass.getFilename(),expression).println("Undeclared identifier " + ((assign)expression).getName());
++                return;
++            }
+ 
+             if (Flags.semant_debug) {
+                 System.out.println("Type checking assignment : ");
+                 //e.dump_with_types(System.out, 1);
+             }
+
+
+
+
+
+Fix3:
+=====================================================================================
+checkConformance of two class types also needs to check for SELF_TYPE
+Diff:
+=====
+--- a/ClassTable.java
++++ b/ClassTable.java
+@@ -413,8 +413,14 @@ class ClassTable {
+     }
+ 
+     /** Checks if C1 <= C2		**/
++       if (C1 == TreeConstants.SELF_TYPE) {
++            C1 = currentClass;
++        }
++        if (C2 == TreeConstants.SELF_TYPE) {
++            C2 = currentClass;
++        }
+
+	Fixes - rand1, rand2, rand3, rand4, rand5, self2, self3, err-override2, err-self1, err-self2, err-self3
