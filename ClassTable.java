@@ -413,8 +413,14 @@ class ClassTable {
     }
 
     /** Checks if C1 <= C2		**/
-    public Boolean checkConformance(AbstractSymbol C1, AbstractSymbol C2) {
-    	if ( C1 == C2 ) {
+    public Boolean checkConformance(AbstractSymbol C1, AbstractSymbol C2, AbstractSymbol currentClass) {
+    	if (C1 == TreeConstants.SELF_TYPE) {
+            C1 = currentClass;
+        }
+        if (C2 == TreeConstants.SELF_TYPE) {
+            C2 = currentClass;
+        }
+        if ( C1 == C2 ) {
     		return true;
     	}
     	// Check for a path from C2 to reach C1

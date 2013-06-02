@@ -378,7 +378,7 @@ class programc extends Program {
             if ( ((object)expression).getName() == TreeConstants.self ) {
                 expression.set_type(TreeConstants.SELF_TYPE);
             } else if (objectSymTab.lookup(((object)expression).getName()) == null) {
-                classTable.semantError(currentClass.getFilename(),expression).println("Undeclared identifier " + ((object)expression).getName());
+                //classTable.semantError(currentClass.getFilename(),expression).println("Undeclared identifier " + ((object)expression).getName());
                 expression.set_type(TreeConstants.Object_);
             } else {
                 // Set the type of this object from the symbol table, if it exists
@@ -461,9 +461,10 @@ class programc extends Program {
             }
             // TODO: Fill in the type of dispatch here ?
         } else if (expression instanceof assign) {
+            /*
             if (objectSymTab.lookup(((assign)expression).getName()) == null) {
                 classTable.semantError(currentClass.getFilename(),expression).println("Undeclared identifier " + ((assign)expression).getName());
-            }
+            } */
             Expression e = ((assign)expression).getExpression();
             traverseExpression( currentClass, e, objectSymTab, methodSymTab);
             expression.set_type(e.get_type());
@@ -493,7 +494,7 @@ class programc extends Program {
     	    ArrayList<AbstractSymbol> inputTypes = new ArrayList<AbstractSymbol>();
     	    inputTypes.add(then_exp.get_type());
             inputTypes.add(else_exp.get_type());
-     	    AbstractSymbol finalType = LCA(inputTypes);
+     	    AbstractSymbol finalType = LCA(inputTypes, currentClass);
 
             if (finalType!= null)expression.set_type(finalType);
 
@@ -519,16 +520,17 @@ class programc extends Program {
            }
 
            //return the lca of all branch types
-           AbstractSymbol finalType = LCA(branchTypes);
+           AbstractSymbol finalType = LCA(branchTypes, currentClass);
            if (finalType != null) expression.set_type(finalType);
           
         }
     }
 
  // find the lowest common ancestor in inheritance tree 
-    private AbstractSymbol LCA (ArrayList<AbstractSymbol> inputTypes) {
+    private AbstractSymbol LCA (ArrayList<AbstractSymbol> inputTypes, class_c currentClass) {
 
         int smallestDepth = Integer.MAX_VALUE;
+        Boolean selfEncountered = false;
         HashMap<AbstractSymbol, Integer> nodeToDepths = new HashMap<AbstractSymbol, Integer>();
 	    for (AbstractSymbol type : inputTypes) {
             if (Flags.semant_debug){
@@ -536,7 +538,13 @@ class programc extends Program {
           
              }
             if (type == null) return null;
-            int depth = classTable.getDepthFromNode(type.toString());
+            int depth;
+            if (type.getString().equals(TreeConstants.SELF_TYPE.getString())) {
+                selfEncountered = true;
+                depth = classTable.getDepthFromNode( currentClass.getName().getString() );
+            } else {
+                depth = classTable.getDepthFromNode(type.toString());
+            }
             if (depth < smallestDepth) smallestDepth = depth;
             nodeToDepths.put(type, depth);
         }
@@ -547,6 +555,9 @@ class programc extends Program {
             int depth = nodeToDepths.get(node);
             int difference = depth - smallestDepth;
             String nodeName = node.toString();
+            if (nodeName.equals(TreeConstants.SELF_TYPE.getString())) {
+                nodeName = currentClass.getName().getString();
+            }
             for (int i = 0; i < difference; i++){
                 nodeName = classTable.getParent(nodeName);
             }
@@ -592,7 +603,11 @@ class programc extends Program {
             System.out.println("ORIGINAL NODES DEPTHS ARE:" + nodeToDepths);
             System.out.println("FINAL TYPE IS :" + (classTable.getClass(ancestors.get(0))).getName());
          }
-        return (classTable.getClass(ancestors.get(0))).getName();
+         if (selfEncountered && ancestors.get(0).equals(currentClass.getName().getString())) {
+            return TreeConstants.SELF_TYPE;
+         } else {
+            return (classTable.getClass(ancestors.get(0))).getName();
+        }
     }
 
     /** Second + Third pass through AST to perform inheritance   **/
@@ -744,7 +759,7 @@ class programc extends Program {
             if (T0 == TreeConstants.SELF_TYPE) {
                 T0 = currentClass.getName();
             }
-            if (!classTable.checkConformance(T1, T0)) {
+            if (!classTable.checkConformance(T1, T0, currentClass.getName())) {
                 classTable.semantError(currentClass.getFilename(), a).println("Inferred type " + T1 + " of initialization of attribute " + a.getName() + " does not conform to declared type " + T0);
             }
         }
@@ -796,7 +811,7 @@ class programc extends Program {
         if (observedReturnType == TreeConstants.SELF_TYPE) {
             observedReturnType = currentClass.getName();
         }
-        if (!classTable.checkConformance(observedReturnType, declaredReturnType)) {
+        if (!classTable.checkConformance(observedReturnType, declaredReturnType, currentClass.getName())) {
             classTable.semantError(currentClass.getFilename(), m).println("Inferred return type " + observedReturnType.toString() + " of method " + methodname + " does not conform to declared return type " + declaredReturnType.toString());
         }
         objectSymTab.exitScope();
@@ -829,7 +844,7 @@ class programc extends Program {
            }
 
            //return the lca of all branch types
-           AbstractSymbol finalType = LCA(branchTypes);
+           AbstractSymbol finalType = LCA(branchTypes, currentClass);
            expression.set_type(finalType);
         } 
        
@@ -838,6 +853,7 @@ class programc extends Program {
             if ( ((object)expression).getName() == TreeConstants.self ) {
                 expression.set_type(TreeConstants.SELF_TYPE);
             } else  if (objectSymTab.lookup(((object)expression).getName()) == null) {
+                classTable.semantError(currentClass.getFilename(),expression).println("Undeclared identifier " + ((object)expression).getName());
                 expression.set_type(TreeConstants.Object_);
             } else {
                 expression.set_type((AbstractSymbol)objectSymTab.lookup(((object)expression).getName()));
@@ -848,13 +864,17 @@ class programc extends Program {
             e.set_type(e.getExpression().get_type());
             AbstractSymbol inferredType = e.getExpression().get_type();
             AbstractSymbol declaredType = (AbstractSymbol) objectSymTab.lookup(e.getName());
+            if (objectSymTab.lookup(((assign)expression).getName()) == null) {
+                classTable.semantError(currentClass.getFilename(),expression).println("Undeclared identifier " + ((assign)expression).getName());
+                return;
+            }
 
             if (Flags.semant_debug) {
                 System.out.println("Type checking assignment : ");
                 //e.dump_with_types(System.out, 1);
             }
 
-            if (!classTable.checkConformance(inferredType, declaredType)) {
+            if (!classTable.checkConformance(inferredType, declaredType, currentClass.getName())) {
                 classTable.semantError(currentClass.getFilename(), e).println("Type " + inferredType + " of assigned expression does not conform to declared type " + declaredType + " of identifier " + e.getName());
             }
         } else if (expression instanceof cond) {
@@ -873,7 +893,7 @@ class programc extends Program {
             ArrayList<AbstractSymbol> inputTypes = new ArrayList<AbstractSymbol>();
             inputTypes.add(e.getThen().get_type());
             inputTypes.add(e.getElse().get_type());
-            AbstractSymbol finalType = LCA(inputTypes);
+            AbstractSymbol finalType = LCA(inputTypes, currentClass);
 
             e.set_type(finalType);
 
@@ -886,7 +906,7 @@ class programc extends Program {
             }
             if (!(e.getInit() instanceof no_expr)) {
                 AbstractSymbol T1 = e.getInit().get_type();
-                if (!classTable.checkConformance(T1, T0Prime)) {
+                if (!classTable.checkConformance(T1, T0Prime, currentClass.getName())) {
                     classTable.semantError(currentClass.getFilename(), e).println("Inferred type " + T1 + " of initialization of " + e.getIdentifier() + " does not conform to identifier's declared type " + T0Prime);
                 }
             }
@@ -939,7 +959,7 @@ class programc extends Program {
                     for (int i = 0; i < declaredTypes.size() - 1; i++) {
                         AbstractSymbol inferred = inferredTypes.get(i);
                         AbstractSymbol declared = declaredTypes.get(i);
-                        if (!classTable.checkConformance(inferred, declared)) {
+                        if (!classTable.checkConformance(inferred, declared, currentClass.getName())) {
                             classTable.semantError(currentClass.getFilename(), e).println("In call of method " + methodname + " type " + inferred + " of parameter number " + i + " does not conform to declared type " + declared);
                         }
                     }
@@ -964,7 +984,7 @@ class programc extends Program {
             }
 
             // Check of T0 conforms to T
-            if (!classTable.checkConformance(T0, T)) {
+            if (!classTable.checkConformance(T0, T, currentClass.getName())) {
                 classTable.semantError(currentClass.getFilename(), e).println("Expression type " + T0 + " does not conform to declared static dispatch type " + T);
                 e.set_type(TreeConstants.Object_);
             }
@@ -989,7 +1009,7 @@ class programc extends Program {
                     for (int i = 0; i < declaredTypes.size() - 1; i++) {
                         AbstractSymbol inferred = inferredTypes.get(i);
                         AbstractSymbol declared = declaredTypes.get(i);
-                        if (!classTable.checkConformance(inferred, declared)) {
+                        if (!classTable.checkConformance(inferred, declared, currentClass.getName())) {
                             classTable.semantError(currentClass.getFilename(), e).println("In call of method " + methodname + " type " + inferred + " of parameter number " + i + " does not conform to declared type " + declared);
                         }
                     }
